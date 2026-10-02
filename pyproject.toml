@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md-mininet"
+version = "0.1.0"
+description = "Single-machine Mininet topology planning and basic network runner for MDNET"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+md-mininet = "channel_mininet.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
