@@ -102,15 +102,17 @@ Worker A 和 Worker B 分别查看自己的规划：
 安装 Mininet 与 OVS，并确保它们能被当前虚拟环境使用后，在项目根目录执行以下命令。`up` 会实际创建网络命名空间、veth 和 OVS 桥，需要 root 权限；**项目当前约定暂不执行部署或测试，以下只是准备好的操作方式，尚未在本项目验证。**
 
 ```bash
-sudo ./.venv/bin/md-mininet up configs/two_workers.json --all-workers
+sudo ./start.sh
 ```
+
+`start.sh` 默认读取 `configs/two_workers.json` 并在本机启动所有 Worker 分区；可用 `--scene 路径` 指定其他场景，路径相对于项目根目录。脚本使用项目 `.venv/bin/md-mininet`，需先按上文安装项目。
 
 这会在**同一台 Linux 机器、同一个 Mininet 进程**中创建示例的 16 台主机、4 台交换机及跨分区链路，然后进入 Mininet CLI。预期可在 CLI 中查看节点与链路，并在退出 CLI 后由 `network.stop()` 回收本次 Mininet 创建的资源。该模式使用 OVS 桥的普通 MAC 学习转发，适合先检查拓扑和基本通信；它不验证中央 SDN 控制器或本文规划的 OpenFlow 规则。示例拓扑没有交换机环路；基础桥接模式会拒绝带交换机环路的场景。
 
 同一份源码也支持只启动一个 Worker 的本地部分：
 
 ```bash
-sudo ./.venv/bin/md-mininet up configs/two_workers.json --worker a
+sudo ./start.sh --worker a
 ```
 
 单 Worker 模式**不创建跨 Worker 链路**。分别在两台电脑上运行 `--worker a` 和 `--worker b`，目前只能得到两张各自独立的本地网络，不会自动互通。退出 Mininet CLI 时输入 `exit`；项目不会调用全局的 `mn -c`。
