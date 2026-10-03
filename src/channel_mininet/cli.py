@@ -9,6 +9,8 @@ import sys
 from channel_mininet.control.neighbors import build_static_neighbors
 from channel_mininet.control.routing import build_routes
 from channel_mininet.runtime.names import planned_interface_names
+from channel_mininet.runtime.deployment import load_deployment
+from channel_mininet.runtime.vxlan import plan_tunnels
 from channel_mininet.runtime.worker import run_basic_network
 from channel_mininet.schema import SceneError, load_scene, scene_fingerprint
 from channel_mininet.topology.builder import build_topology
@@ -23,15 +25,17 @@ def _parser() -> argparse.ArgumentParser:
     plan = commands.add_parser("plan", help="print the static plan for one worker")
     plan.add_argument("scene")
     plan.add_argument("--worker", required=True)
+    plan.add_argument("--deployment", help="include physical VXLAN endpoints")
     up = commands.add_parser("up", help="start the basic Mininet network in the foreground")
     up.add_argument("scene")
     scope = up.add_mutually_exclusive_group(required=True)
-    scope.add_argument("--worker", help="start one worker's local partition")
+    scope.add_argument("--worker", help="start one worker, including VXLAN with --deployment")
     scope.add_argument(
         "--all-workers", action="store_true", help="start all partitions on this machine"
     )
     up.add_argument("--controller-host", help="IPv4 address of an independently running controller")
     up.add_argument("--controller-port", type=int)
+    up.add_argument("--deployment", help="shared multi-machine deployment YAML or JSON")
     return parser
 
 
@@ -42,11 +46,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "up":
             if args.controller_host is None and args.controller_port is not None:
                 raise SceneError("--controller-port requires --controller-host")
+            deployment = None
+            if args.deployment:
+                if args.all_workers:
+                    raise SceneError("--deployment requires --worker")
+                if args.controller_host is not None or args.controller_port is not None:
+                    raise SceneError("--deployment supplies the controller address; omit --controller-host/port")
+                deployment = load_deployment(args.deployment, scene)
             run_basic_network(
                 scene,
                 None if args.all_workers else args.worker,
-                controller_host=args.controller_host,
-                controller_port=6653 if args.controller_port is None else args.controller_port,
+                controller_host=(str(deployment.controller_host) if deployment else args.controller_host),
+                controller_port=(deployment.controller_port if deployment else
+                                 6653 if args.controller_port is None else args.controller_port),
+                deployment=deployment,
             )
             return 0
         topology = build_topology(scene)
@@ -96,6 +109,14 @@ def main(argv: list[str] | None = None) -> int:
                     if node_id in worker.node_ids
                 },
             }
+            if args.deployment:
+                deployment = load_deployment(args.deployment, scene)
+                result["vxlan_tunnels"] = [
+                    {"link": tunnel.link_id, "switch": tunnel.switch_id,
+                     "port": tunnel.port_name, "local_ip": str(tunnel.local_ip),
+                     "remote_ip": str(tunnel.remote_ip), "vni": tunnel.vni}
+                    for tunnel in plan_tunnels(scene, deployment, args.worker)
+                ]
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (SceneError, RuntimeError) as exc:

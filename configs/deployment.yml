@@ -1,0 +1,14 @@
+# Physical-machine settings; the simulated topology stays in two_workers.json.
+version: 1
+# Copy scene_digest from: md-mininet validate configs/two_workers.json
+scene_digest: "REPLACE_WITH_VALIDATE_SCENE_DIGEST"
+
+# Worker ID -> the IPv4 address assigned to that physical machine.
+workers:
+  a: "192.168.145.131"
+  b: "192.168.145.132"
+
+# Address where the shared Ryu controller listens.
+controller:
+  host: "192.168.145.132"
+  port: 6653

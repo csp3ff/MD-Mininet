@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "scene_digest": "REPLACE_WITH_VALIDATE_SCENE_DIGEST",
+  "workers": {
+    "a": "192.168.145.131",
+    "b": "192.168.145.132"
+  },
+  "controller": {
+    "host": "192.168.145.132",
+    "port": 6653
+  }
+}

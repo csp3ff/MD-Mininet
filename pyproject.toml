@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "md-mininet"
 version = "0.1.0"
-description = "Single-machine Mininet topology planning and basic network runner for MDNET"
+description = "Multi-worker Mininet topology planning and distributed VXLAN runner for MDNET"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 md-mininet = "channel_mininet.cli:main"

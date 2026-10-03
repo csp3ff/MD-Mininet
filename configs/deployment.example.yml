@@ -1,0 +1,12 @@
+# Physical deployment settings. Keep the topology in two_workers.json.
+# scene_digest is computed from two_workers.json only, never from this file.
+version: 1
+scene_digest: "REPLACE_WITH_VALIDATE_SCENE_DIGEST"
+
+workers:
+  a: "192.0.2.11"
+  b: "192.0.2.12"
+
+controller:
+  host: "192.0.2.10"
+  port: 6653

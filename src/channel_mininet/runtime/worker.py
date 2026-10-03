@@ -1,12 +1,18 @@
-"""Foreground lifecycle for the basic, single-machine Mininet network."""
+"""Foreground lifecycle for local and distributed Mininet workers."""
 
 from __future__ import annotations
 
 import os
 from ipaddress import IPv4Address, ip_address
+import signal
 import subprocess
+from uuid import uuid4
 
 from channel_mininet.backends.mininet import make_basic_topo
+from channel_mininet.runtime.deployment import Deployment
+from channel_mininet.runtime.vxlan import (
+    add_tunnel, check_local_underlay, plan_tunnels, remove_tunnels,
+)
 from channel_mininet.schema import Scene
 from channel_mininet.topology.placement import plan_worker
 
@@ -17,22 +23,29 @@ def run_basic_network(
     *,
     controller_host: str | None = None,
     controller_port: int = 6653,
+    deployment: Deployment | None = None,
 ) -> None:
     """Start a foreground Mininet network, optionally using a remote controller.
 
-    With ``worker_id=None`` this starts both configured partitions in one
-    Mininet process, including their connecting link. A worker ID starts only
-    its own local topology. No global Mininet cleanup command is invoked.
+    With ``worker_id=None`` this starts every partition in one Mininet process.
+    With a deployment config, one worker starts local nodes and creates its
+    half of every cross-machine VXLAN link. No global cleanup is invoked.
     """
 
     if not hasattr(os, "geteuid"):
         raise RuntimeError("Mininet network startup requires Linux")
     if os.geteuid() != 0:
         raise RuntimeError("Mininet network startup requires root; use sudo")
+    if deployment is not None and (worker_id is None or controller_host is None):
+        raise RuntimeError("multi-machine deployment requires --worker and a controller")
+    tunnels = ()
+    if deployment is not None:
+        tunnels = plan_tunnels(scene, deployment, worker_id)
+        check_local_underlay(deployment.workers[worker_id])
     if controller_host is not None:
-        if worker_id is not None and plan_worker(scene, worker_id).boundary_links:
+        if deployment is None and worker_id is not None and plan_worker(scene, worker_id).boundary_links:
             raise RuntimeError(
-                "controlled single-worker mode needs cross-worker links, which are not implemented"
+                "controlled single-worker mode with boundary links requires --deployment"
             )
         try:
             if not isinstance(ip_address(controller_host), IPv4Address):
@@ -62,6 +75,14 @@ def run_basic_network(
         autoSetMacs=False,
         autoStaticArp=False,
     )
+    created_tunnels = []
+    tunnel_owner = uuid4().hex
+    previous_term = signal.getsignal(signal.SIGTERM)
+
+    def _stop_on_term(_signum, _frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _stop_on_term)
     try:
         if controller_host is not None:
             network.addController(
@@ -69,6 +90,9 @@ def run_basic_network(
             )
         network.build()
         network.start()
+        for tunnel in tunnels:
+            created_tunnels.append(tunnel)
+            add_tunnel(tunnel, tunnel_owner)
         if controller_host is not None:
             print(f"Network started with remote controller {controller_host}:{controller_port}.")
             print("Wait for the controller's flow confirmation before testing traffic.")
@@ -77,7 +101,13 @@ def run_basic_network(
         print("Use Mininet CLI commands; type 'exit' to stop it.")
         CLI(network)
     finally:
-        network.stop()
+        try:
+            remove_tunnels(created_tunnels, tunnel_owner)
+        finally:
+            try:
+                network.stop()
+            finally:
+                signal.signal(signal.SIGTERM, previous_term)
 
 
 def _check_bridge_names(scene: Scene, worker_id: str | None) -> None:

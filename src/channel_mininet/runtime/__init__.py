@@ -1,1 +1,1 @@
-"""Resource identity and state for single-machine workers."""
+"""Resource identity and state for local and distributed workers."""

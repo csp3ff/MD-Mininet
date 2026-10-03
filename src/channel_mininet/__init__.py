@@ -1,4 +1,4 @@
-"""MDNET's single-machine worker package.
+"""MDNET worker package for local and distributed Mininet scenes.
 
 Every worker uses this same package. A worker ID selects its local partition.
 """

@@ -9,11 +9,13 @@ scope_selected=false
 controller_opts=()
 controller_host_selected=false
 controller_port_selected=false
+deployment_opts=()
 
 usage() {
     cat <<'EOF'
 Usage: ./start.sh [--all-workers | --worker WORKER_ID] [--scene PATH]
                   [--controller-host IPv4] [--controller-port PORT]
+                  [--deployment PATH]
 
 Without options, start the complete example topology on this machine.
 The scene path is relative to the project root unless absolute.
@@ -60,6 +62,18 @@ while (($#)); do
             controller_host_selected=true
             shift 2
             ;;
+        --deployment)
+            if (($# < 2)) || [[ -z "$2" || "$2" == --* || ${#deployment_opts[@]} -ne 0 ]]; then
+                echo "--deployment requires one file path." >&2
+                exit 2
+            fi
+            deployment="$2"
+            if [[ "$deployment" != /* ]]; then
+                deployment="$project_dir/$deployment"
+            fi
+            deployment_opts=(--deployment "$deployment")
+            shift 2
+            ;;
         --controller-port)
             if (($# < 2)) || [[ -z "$2" || "$2" == --* || "$controller_port_selected" == true ]]; then
                 echo "--controller-port requires one port number." >&2
@@ -85,6 +99,11 @@ if [[ "$controller_port_selected" == true && "$controller_host_selected" == fals
     echo "--controller-port requires --controller-host." >&2
     exit 2
 fi
+if ((${#deployment_opts[@]})) && [[ "$scope_selected" == false || ${scope[0]} != --worker ||
+    "$controller_host_selected" == true || "$controller_port_selected" == true ]]; then
+    echo "--deployment requires --worker and supplies the controller address." >&2
+    exit 2
+fi
 
 if [[ ! -f "$scene" ]]; then
     echo "Scene file not found: $scene" >&2
@@ -100,4 +119,4 @@ if ((EUID != 0)); then
     exit 1
 fi
 
-exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}"
+exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}" "${deployment_opts[@]}"
