@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from importlib.util import find_spec
 import os
 from pathlib import Path
 
@@ -25,10 +26,17 @@ def main(argv: list[str] | None = None) -> int:
     except SceneError as exc:
         parser.error(str(exc))
 
-    try:
-        from ryu.cmd import manager
-    except ImportError as exc:
-        parser.error(f"Ryu is unavailable: {exc}; install the controller extra")
+    if find_spec("ryu") is None:
+        parser.error("Ryu is unavailable; install the controller extra")
+
+    # Ryu 4.34 imports this removed Eventlet symbol while loading its WSGI module.
+    # Ryu's later source uses None when the symbol is absent; this app does not use WSGI.
+    from eventlet import wsgi as eventlet_wsgi
+
+    if not hasattr(eventlet_wsgi, "ALREADY_HANDLED"):
+        eventlet_wsgi.ALREADY_HANDLED = None
+
+    from ryu.cmd import manager
 
     os.environ["MDNET_SCENE"] = str(scene_path)
     manager.main(

@@ -122,10 +122,21 @@ Mininet 的安装方式见[官方安装说明](https://github.com/mininet/minine
 
 ### 独立启动 Ryu 中央控制器
 
-控制器不由 Mininet 启动或停止。先为项目安装可选的 Ryu 依赖，然后在一个终端启动控制器；它可以使用不含 Mininet 的 Python 环境，也不需要 root：
+控制器不由 Mininet 启动或停止。Ryu 4.34 的构建脚本调用了 setuptools 68 已移除的 `easy_install.get_script_args`，而关闭构建隔离后还必须预先安装其 `setup_requires` 指定的 PBR；否则会报 `Unknown distribution option: 'pbr'` 和 `Multiple top-level packages discovered`。先在项目虚拟环境中准备 Ryu 的构建依赖，再单独安装 Ryu 和本项目：
 
 ```bash
-./.venv/bin/python -m pip install '.[controller]'
+./.venv/bin/python -m pip install 'setuptools==67.8.0' 'pbr==5.11.1' wheel
+./.venv/bin/python -m pip install --no-build-isolation --no-deps 'ryu==4.34'
+./.venv/bin/python -m pip install -e '.[controller]'
+```
+
+`--no-build-isolation` 只用于构建 Ryu，使它使用刚安装的 setuptools 和 PBR；`--no-deps` 将 Ryu 的其余依赖交给最后一条命令正常安装。本项目的构建环境仍按 `pyproject.toml` 使用 setuptools 68 或更新版本。参见 [Ryu 的 setup.py](https://github.com/faucetsdn/ryu/blob/v4.34/setup.py)、[setuptools 68 变更记录](https://setuptools.pypa.io/en/latest/history.html#v68-0-0)和 [pip 构建隔离说明](https://pip.pypa.io/en/stable/reference/build-system/#disabling-build-isolation)。
+
+Ryu 4.34 启动时还会导入新版 Eventlet 已移除的 `ALREADY_HANDLED`。项目的 `md-controller` 入口在导入 Ryu 前为缺失的符号提供兼容值；请使用包含这项修正的源码。Eventlet 的弃用提示是警告，不代表控制器已经启动。参见 [Ryu 已报告的问题](https://github.com/faucetsdn/ryu/issues/180)与 [Ryu 后续源码](https://github.com/faucetsdn/ryu/blob/master/ryu/app/wsgi.py)。
+
+安装后，在一个终端启动控制器；它不需要 root：
+
+```bash
 ./.venv/bin/md-controller configs/two_workers.json --listen-host 127.0.0.1 --listen-port 6653
 ```
 
