@@ -1,7 +1,7 @@
 # Physical deployment settings. Keep the topology in two_workers.json.
 # scene_digest is computed from two_workers.json only, never from this file.
 version: 1
-scene_digest: "REPLACE_WITH_VALIDATE_SCENE_DIGEST"
+scene_digest: "2cfa100a7d7481b3c80c4fb71e19c3c2a82564577b57c6f398c3ceed9c363078"
 
 workers:
   a: "192.0.2.11"
