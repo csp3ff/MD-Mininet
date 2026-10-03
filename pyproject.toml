@@ -11,6 +11,10 @@ dependencies = []
 
 [project.scripts]
 md-mininet = "channel_mininet.cli:main"
+md-controller = "controller.cli:main"
+
+[project.optional-dependencies]
+controller = ["ryu==4.34"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

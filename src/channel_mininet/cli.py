@@ -30,6 +30,8 @@ def _parser() -> argparse.ArgumentParser:
     scope.add_argument(
         "--all-workers", action="store_true", help="start all partitions on this machine"
     )
+    up.add_argument("--controller-host", help="IPv4 address of an independently running controller")
+    up.add_argument("--controller-port", type=int)
     return parser
 
 
@@ -38,7 +40,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         scene = load_scene(args.scene)
         if args.command == "up":
-            run_basic_network(scene, None if args.all_workers else args.worker)
+            if args.controller_host is None and args.controller_port is not None:
+                raise SceneError("--controller-port requires --controller-host")
+            run_basic_network(
+                scene,
+                None if args.all_workers else args.worker,
+                controller_host=args.controller_host,
+                controller_port=6653 if args.controller_port is None else args.controller_port,
+            )
             return 0
         topology = build_topology(scene)
         routes = build_routes(scene, topology)

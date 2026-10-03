@@ -2,7 +2,7 @@
 
 MD-Mininet 是一个面向多 Worker 实验的单机 Mininet 项目。每台 Worker 电脑安装**同一份源码**、读取**同一份场景配置**，再用不同的 Worker ID 选择本机负责的节点和链路。当前示例有 A、B 两个分区，每个分区包含 8 台模拟主机和 2 台模拟交换机。
 
-> **当前状态：已有基础 Mininet 网络启动入口，尚未运行验证。** `up` 使用标准 Mininet 主机和 OVS 桥，能按一个 Worker 或全部 Worker 构建拓扑；全部 Worker 模式用于在一台 Linux 主机上检查跨分区连通。它不使用中央 SDN 控制器，也不提供跨物理机器链路。每节点 Docker 容器化排在基础流程之后。`validate` 和 `plan` 仍是只读命令。
+> **当前状态：已有基础 Mininet 入口和独立的 Ryu 中央控制器入口，新增的受控模式尚未运行验证。** 默认 `up` 仍使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。全部 Worker 模式只在一台 Linux 主机上创建完整拓扑；目前没有跨物理机器链路。每节点 Docker 容器化排在基础流程之后。`validate` 和 `plan` 仍是只读命令。
 
 ## 开发 TODO
 
@@ -16,7 +16,8 @@ MD-Mininet 是一个面向多 Worker 实验的单机 Mininet 项目。每台 Wor
 - [x] 实现标准 Mininet Host + OVSBridge 的前台 `up` 命令，支持单 Worker 和单机全部 Worker。
 - [x] 编写当前版本的复制、安装、规划和基础网络启动说明。
 - [ ] 在允许运行后，验证基础 Mininet 环境与单机双分区拓扑、通信和退出清理。
-- [ ] 实现中央 SDN 控制器、实际端口核对、OpenFlow 规则安装与 Barrier 确认。
+- [x] 写入独立启动的 Ryu 中央控制器、端口核对、IPv4/ARP 规则安装与 Barrier 回执处理。
+- [ ] 在允许运行后，验证控制器连接、端口映射、实际流表及断线恢复。
 - [ ] 实现完整的状态检查、异常退出恢复和资源残留检查。
 - [ ] 完成最小节点、单 Worker、双 Worker 的功能验收。
 - [ ] 验证 Docker、容器内 OVS、内核和网络操作权限，再实现每节点容器化。
@@ -36,7 +37,7 @@ MD-Mininet 是一个面向多 Worker 实验的单机 Mininet 项目。每台 Wor
 先在开发电脑上将 `README.md`、`pyproject.toml`、`src/`、`configs/` 和 `.gitignore` 提交并推送。本仓库当前的远端名和分支名都叫 `master`，远端地址是 `https://github.com/csp3ff/MD-Mininet.git`：
 
 ```bash
-git add .gitignore README.md pyproject.toml src configs
+git add .gitignore README.md pyproject.toml start.sh src configs
 git commit -m "Add basic Mininet runner"
 git push -u master master
 ```
@@ -119,6 +120,25 @@ sudo ./start.sh --worker a
 
 Mininet 的安装方式见[官方安装说明](https://github.com/mininet/mininet/blob/master/INSTALL)。Mininet 和本项目虚拟环境必须使用兼容的 Python 版本；若 `up` 报 Mininet 无法导入，先核对其安装位置及虚拟环境的 `--system-site-packages` 设置。
 
+### 独立启动 Ryu 中央控制器
+
+控制器不由 Mininet 启动或停止。先为项目安装可选的 Ryu 依赖，然后在一个终端启动控制器；它可以使用不含 Mininet 的 Python 环境，也不需要 root：
+
+```bash
+./.venv/bin/python -m pip install '.[controller]'
+./.venv/bin/md-controller configs/two_workers.json --listen-host 127.0.0.1 --listen-port 6653
+```
+
+在另一个终端启动单机完整拓扑，并指定已运行的控制器地址：
+
+```bash
+sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
+```
+
+受控模式使用 `OVSSwitch`、OpenFlow 1.3 和 `failMode=secure`。控制器从同一场景读取 DPID 与链路，等待交换机上报端口描述，用实际 `ofport` 对应预定接口名；端口齐备后，按目的主机 IP 安装 IPv4 和 ARP 单播路径，并通过 OpenFlow Barrier 回执确认交换机处理了更新。控制器日志出现每台交换机的 `Flow update confirmed` 后，才适合在 Mininet CLI 中检查通信。未匹配的流量不会由网桥自动学习转发。路径由启动时的静态场景计算，端口故障会清除相关交换机的规则，目前不自动寻找替代路径。这里的 Worker 是部署分区，尚非独立的控制域；域控制器代码留待域边界定义后实现。
+
+控制器和 Mininet 必须使用相同的场景配置。当前没有跨 Worker 物理链路，因此使用示例双 Worker 场景时，受控模式只支持 `--all-workers`；`--worker` 受控启动会明确报错。Ryu 4.34 已不再维护；本项目按当前要求使用它，实际安装兼容性及网络行为仍待允许运行后验证。[Ryu 项目状态](https://github.com/faucetsdn/ryu)
+
 ## 5. 当前源码的边界
 
 | 已有源码 | 作用 |
@@ -129,13 +149,15 @@ Mininet 的安装方式见[官方安装说明](https://github.com/mininet/minine
 | `src/channel_mininet/runtime/` | 生成短接口名，定义链路资源登记格式 |
 | `src/channel_mininet/backends/mininet.py` | 根据 Worker 分区或完整场景生成 Mininet Topo |
 | `src/channel_mininet/runtime/worker.py` | 基础 Mininet 网络的前台启动与退出清理 |
+| `src/controller/cli.py` | 独立启动 Ryu 中央控制器 |
+| `src/controller/central/app.py` | DPID/端口核对、静态 IPv4/ARP 流表安装与 Barrier 回执 |
 
-基础 `up` 使用标准 Mininet Host 和 OVSBridge。保留的 `make_worker_topo` 则是未来的容器化入口，需要调用方注入真正的 Docker 主机类和 Docker OVS 交换机类。`control/flow_manager.py` 只把逻辑路径映射到**已观测到的** OpenFlow 端口，没有向交换机发送规则；基础 `up` 不使用这份流表规划。
+默认 `up` 使用标准 Mininet Host 和 OVSBridge；受控 `up` 使用 OVSSwitch，控制器只读取共享场景并复用纯计算的流表规划，不创建或管理 Mininet 进程。保留的 `make_worker_topo` 则是未来的容器化入口，需要调用方注入真正的 Docker 主机类和 Docker OVS 交换机类。
 
 目前只有前台 `up`；没有独立的 `down`、跨机器链路或容器化部署命令。前台进程异常终止后的资源恢复尚未实现，不要用 `mn -c` 代替本项目未来按实验和 Worker 归属的定向回收流程。
 
 ## 6. 完整网络部署还需要什么
 
-后续实现每节点容器化时，每台实际运行 Worker 的 Linux 主机预计还需要 Docker Engine、与其 Python 版本兼容的 Mininet/Containernet、容器内 OVS 所需的内核能力，以及相应网络操作权限。中央控制器和跨 Worker 链路也需要单独的部署与连接配置。具体版本、权限和镜像必须先完成能力验证，再写成可执行步骤。安装资料可参考 [Docker Engine 官方文档](https://docs.docker.com/engine/install/)与 [Mininet 安装说明](https://github.com/mininet/mininet/blob/master/INSTALL)。
+后续实现每节点容器化时，每台实际运行 Worker 的 Linux 主机预计还需要 Docker Engine、与其 Python 版本兼容的 Mininet/Containernet、容器内 OVS 所需的内核能力，以及相应网络操作权限。跨 Worker 链路及多机器控制器连接也需要单独的部署配置。具体版本、权限和镜像必须先完成能力验证，再写成可执行步骤。安装资料可参考 [Docker Engine 官方文档](https://docs.docker.com/engine/install/)与 [Mininet 安装说明](https://github.com/mininet/mininet/blob/master/INSTALL)。
 
-本项目当前的工作约定是不运行部署逻辑，也不运行代码测试；本 README 的 `up` 命令尚未在本次修改中执行。
+本项目当前的工作约定是不运行部署逻辑，也不运行代码测试；本 README 的 Mininet 和控制器启动命令均未在本次修改中执行。

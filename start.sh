@@ -6,10 +6,14 @@ cli="$project_dir/.venv/bin/md-mininet"
 scene="$project_dir/configs/two_workers.json"
 scope=(--all-workers)
 scope_selected=false
+controller_opts=()
+controller_host_selected=false
+controller_port_selected=false
 
 usage() {
     cat <<'EOF'
 Usage: ./start.sh [--all-workers | --worker WORKER_ID] [--scene PATH]
+                  [--controller-host IPv4] [--controller-port PORT]
 
 Without options, start the complete example topology on this machine.
 The scene path is relative to the project root unless absolute.
@@ -47,6 +51,24 @@ while (($#)); do
             fi
             shift 2
             ;;
+        --controller-host)
+            if (($# < 2)) || [[ -z "$2" || "$2" == --* || "$controller_host_selected" == true ]]; then
+                echo "--controller-host requires one IPv4 address." >&2
+                exit 2
+            fi
+            controller_opts+=(--controller-host "$2")
+            controller_host_selected=true
+            shift 2
+            ;;
+        --controller-port)
+            if (($# < 2)) || [[ -z "$2" || "$2" == --* || "$controller_port_selected" == true ]]; then
+                echo "--controller-port requires one port number." >&2
+                exit 2
+            fi
+            controller_opts+=(--controller-port "$2")
+            controller_port_selected=true
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -58,6 +80,11 @@ while (($#)); do
             ;;
     esac
 done
+
+if [[ "$controller_port_selected" == true && "$controller_host_selected" == false ]]; then
+    echo "--controller-port requires --controller-host." >&2
+    exit 2
+fi
 
 if [[ ! -f "$scene" ]]; then
     echo "Scene file not found: $scene" >&2
@@ -73,4 +100,4 @@ if ((EUID != 0)); then
     exit 1
 fi
 
-exec "$cli" up "$scene" "${scope[@]}"
+exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}"

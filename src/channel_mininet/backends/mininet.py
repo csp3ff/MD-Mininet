@@ -6,24 +6,28 @@ container adapter remains separate and needs Docker-backed node classes.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from channel_mininet.runtime.names import interface_name
 from channel_mininet.schema import Link, Scene, SceneError, Switch
 from channel_mininet.topology.placement import plan_worker
 
 
-def make_basic_topo(scene: Scene, worker_id: str | None = None) -> Any:
+def make_basic_topo(
+    scene: Scene, worker_id: str | None = None, *, controlled: bool = False
+) -> Any:
     """Build one worker, or the full scene, with ordinary Mininet nodes.
 
-    OVSBridge performs MAC learning without an SDN controller. A cyclic
-    switch fabric is rejected because this basic mode has no loop prevention.
+    Bridge mode learns MAC addresses without a controller. Controlled mode
+    uses OpenFlow 1.3 and lets the controller select paths through cycles.
     """
 
     scene.validate()
     hosts, switches, links = _selection(scene, worker_id)
-    _reject_switch_cycles(switches, links)
-    return _build_topo(scene, hosts, switches, links)
+    if not controlled:
+        _reject_switch_cycles(switches, links)
+    switch_options = {"failMode": "secure", "protocols": "OpenFlow13"} if controlled else None
+    return _build_topo(scene, hosts, switches, links, switch_options=switch_options)
 
 
 def make_worker_topo(
@@ -62,6 +66,7 @@ def _build_topo(
     *,
     host_class: type | None = None,
     switch_class: type | None = None,
+    switch_options: Mapping[str, Any] | None = None,
 ) -> Any:
     try:
         from mininet.topo import Topo
@@ -71,6 +76,8 @@ def _build_topo(
     topo = Topo()
     for switch in sorted(switches, key=lambda item: item.id):
         options: dict[str, Any] = {"dpid": switch.dpid}
+        if switch_options:
+            options.update(switch_options)
         if switch_class is not None:
             options["cls"] = switch_class
         topo.addSwitch(switch.id, **options)
