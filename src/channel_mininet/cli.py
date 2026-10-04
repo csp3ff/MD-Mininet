@@ -8,6 +8,7 @@ import sys
 
 from channel_mininet.control.neighbors import build_static_neighbors
 from channel_mininet.control.routing import build_routes
+from channel_mininet.channel import build_channel_states, load_channel_profile
 from channel_mininet.runtime.names import planned_interface_names
 from channel_mininet.runtime.deployment import load_deployment
 from channel_mininet.runtime.vxlan import plan_tunnels
@@ -26,6 +27,11 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("scene")
     plan.add_argument("--worker", required=True)
     plan.add_argument("--deployment", help="include physical VXLAN endpoints")
+    channel_plan = commands.add_parser(
+        "channel-plan", help="compute sourced directional link states without deployment"
+    )
+    channel_plan.add_argument("scene")
+    channel_plan.add_argument("profile", help="JSON channel profile bound to the scene digest")
     up = commands.add_parser("up", help="start the basic Mininet network in the foreground")
     up.add_argument("scene")
     scope = up.add_mutually_exclusive_group(required=True)
@@ -61,6 +67,33 @@ def main(argv: list[str] | None = None) -> int:
                                  6653 if args.controller_port is None else args.controller_port),
                 deployment=deployment,
             )
+            return 0
+        if args.command == "channel-plan":
+            profile = load_channel_profile(args.profile, scene)
+            states = build_channel_states(scene, profile)
+            modeled = {state.link_id for state in states}
+            result = {
+                "scene_digest": profile.scene_digest,
+                "channel_profile_digest": profile.digest,
+                "revision": profile.revision,
+                "modeled_links": sorted(modeled),
+                "unmodeled_links": sorted(set(scene.links_by_id) - modeled),
+                "states": [
+                    {
+                        "link_id": state.link_id,
+                        "direction": state.direction,
+                        "available": state.available,
+                        "bandwidth_mbps": state.bandwidth_mbps,
+                        "delay_ms": state.delay_ms,
+                        "jitter_ms": state.jitter_ms,
+                        "loss_pct": state.loss_pct,
+                        "effective_time": state.effective_time.isoformat(),
+                        "version": state.version,
+                    }
+                    for state in states
+                ],
+            }
+            print(json.dumps(result, indent=2, sort_keys=True))
             return 0
         topology = build_topology(scene)
         routes = build_routes(scene, topology)

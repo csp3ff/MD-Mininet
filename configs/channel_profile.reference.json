@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "scene_digest": "2cfa100a7d7481b3c80c4fb71e19c3c2a82564577b57c6f398c3ceed9c363078",
+  "revision": 1,
+  "effective_time": "2026-10-03T18:28:00+00:00",
+  "ports": [
+    {
+      "link_id": "la1",
+      "node_id": "ha1",
+      "port_type": "1000BASE-T",
+      "rate_mbps": 1000,
+      "source": {
+        "kind": "datasheet",
+        "reference": "https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html",
+        "device_model": "Intel Ethernet Controller I210-AT",
+        "recorded_at": "2026-10-03T18:28:00+00:00"
+      }
+    },
+    {
+      "link_id": "la1",
+      "node_id": "sa1",
+      "port_type": "10/100/1000BASE-T",
+      "rate_mbps": 1000,
+      "source": {
+        "kind": "datasheet",
+        "reference": "https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf",
+        "device_model": "NETGEAR GS108v3",
+        "recorded_at": "2026-10-03T18:28:00+00:00"
+      }
+    }
+  ],
+  "links": [
+    {
+      "link_id": "la1",
+      "model": "generic",
+      "a_to_b": {
+        "available": true,
+        "nominal_bandwidth_mbps": 1000,
+        "distance_m": 100,
+        "max_distance_m": 100,
+        "propagation_speed_mps": 209854720.6,
+        "velocity_factor_of_c": 0.7,
+        "source": {
+          "kind": "scenario_assumption",
+          "reference": "Scenario assumption: a 100 m 1000BASE-T path using Belden 2412; 100 m is this example's upper design bound, not a measured installation length or a universal PHY cutoff. IEEE 1000BASE-T 100 m channel context: https://www.ieee802.org/3/10GBT/public/material/diminico_IWCS.PDF . Belden nominal propagation velocity is 70% of vacuum c, while its listed maximum delay at 100 MHz is 537.6 ns/100 m: https://catalog.belden.com/techdata/EN/2412_techdata.pdf . Vacuum c=299792458 m/s: https://www.nist.gov/si-redefinition/definitions-si-base-units . The 1000 Mb/s cap follows the cited endpoint port limits.",
+          "recorded_at": "2026-10-03T18:28:00+00:00"
+        }
+      },
+      "b_to_a": {
+        "available": true,
+        "nominal_bandwidth_mbps": 1000,
+        "distance_m": 100,
+        "max_distance_m": 100,
+        "propagation_speed_mps": 209854720.6,
+        "velocity_factor_of_c": 0.7,
+        "source": {
+          "kind": "scenario_assumption",
+          "reference": "Scenario assumption: a 100 m 1000BASE-T path using Belden 2412; 100 m is this example's upper design bound, not a measured installation length or a universal PHY cutoff. IEEE 1000BASE-T 100 m channel context: https://www.ieee802.org/3/10GBT/public/material/diminico_IWCS.PDF . Belden nominal propagation velocity is 70% of vacuum c, while its listed maximum delay at 100 MHz is 537.6 ns/100 m: https://catalog.belden.com/techdata/EN/2412_techdata.pdf . Vacuum c=299792458 m/s: https://www.nist.gov/si-redefinition/definitions-si-base-units . The 1000 Mb/s cap follows the cited endpoint port limits.",
+          "recorded_at": "2026-10-03T18:28:00+00:00"
+        }
+      }
+    }
+  ]
+}

@@ -60,7 +60,7 @@ class Link:
 
 @dataclass(frozen=True, slots=True)
 class ChannelState:
-    """Reserved directional link state; the static runtime does not consume it."""
+    """Directional link state; delay_ms is propagation only, with no runtime enforcement yet."""
 
     link_id: str
     direction: Literal["a_to_b", "b_to_a"]
