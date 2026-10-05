@@ -9,9 +9,12 @@ import subprocess
 from uuid import uuid4
 
 from channel_mininet.backends.mininet import make_basic_topo
+from channel_mininet.runtime.channel_agent import ChannelAgent
+from channel_mininet.runtime.channel_shaper import ChannelShaper
 from channel_mininet.runtime.deployment import Deployment
 from channel_mininet.runtime.vxlan import (
-    add_tunnel, check_local_underlay, plan_tunnels, remove_tunnels,
+    add_shaped_tunnel, add_tunnel, check_local_underlay, plan_tunnels,
+    remove_shaped_tunnels, remove_tunnels,
 )
 from channel_mininet.schema import Scene
 from channel_mininet.topology.placement import plan_worker
@@ -23,6 +26,7 @@ def run_basic_network(
     *,
     controller_host: str | None = None,
     controller_port: int = 6653,
+    channel_port: int | None = None,
     deployment: Deployment | None = None,
 ) -> None:
     """Start a foreground Mininet network, optionally using a remote controller.
@@ -38,6 +42,8 @@ def run_basic_network(
         raise RuntimeError("Mininet network startup requires root; use sudo")
     if deployment is not None and (worker_id is None or controller_host is None):
         raise RuntimeError("multi-machine deployment requires --worker and a controller")
+    if channel_port is not None and controller_host is None:
+        raise RuntimeError("channel time slices require the central controller")
     tunnels = ()
     if deployment is not None:
         tunnels = plan_tunnels(scene, deployment, worker_id)
@@ -76,6 +82,7 @@ def run_basic_network(
         autoStaticArp=False,
     )
     created_tunnels = []
+    channel_agent: ChannelAgent | None = None
     tunnel_owner = uuid4().hex
     previous_term = signal.getsignal(signal.SIGTERM)
 
@@ -92,7 +99,15 @@ def run_basic_network(
         network.start()
         for tunnel in tunnels:
             created_tunnels.append(tunnel)
-            add_tunnel(tunnel, tunnel_owner)
+            if channel_port is None:
+                add_tunnel(tunnel, tunnel_owner)
+            else:
+                add_shaped_tunnel(tunnel, tunnel_owner)
+        if channel_port is not None:
+            workers = (worker_id,) if worker_id is not None else scene.workers
+            shaper = ChannelShaper(scene, network, workers)
+            channel_agent = ChannelAgent(scene, shaper, workers, controller_host, channel_port)
+            channel_agent.start()
         if controller_host is not None:
             print(f"Network started with remote controller {controller_host}:{controller_port}.")
             print("Wait for the controller's flow confirmation before testing traffic.")
@@ -102,7 +117,14 @@ def run_basic_network(
         CLI(network)
     finally:
         try:
-            remove_tunnels(created_tunnels, tunnel_owner)
+            try:
+                if channel_agent is not None:
+                    channel_agent.stop()
+            finally:
+                if channel_port is None:
+                    remove_tunnels(created_tunnels, tunnel_owner)
+                else:
+                    remove_shaped_tunnels(created_tunnels, tunnel_owner)
         finally:
             try:
                 network.stop()

@@ -17,6 +17,7 @@ class Deployment:
     workers: dict[str, IPv4Address]
     controller_host: IPv4Address
     controller_port: int
+    channel_port: int = 6654
 
 
 def _ipv4(value: Any, label: str) -> IPv4Address:
@@ -83,8 +84,11 @@ def load_deployment(path: str | Path, scene: Scene) -> Deployment:
         controller_port = controller["port"]
         if type(controller_port) is not int or not 1 <= controller_port <= 65535:
             raise SceneError("controller port must be between 1 and 65535")
+        channel_port = controller.get("channel_port", 6654)
+        if type(channel_port) is not int or not 1 <= channel_port <= 65535:
+            raise SceneError("controller channel_port must be between 1 and 65535")
     except (KeyError, TypeError, ValueError) as exc:
         if isinstance(exc, SceneError):
             raise
         raise SceneError(f"invalid deployment {path}: {exc}") from exc
-    return Deployment(digest, workers, controller_host, controller_port)
+    return Deployment(digest, workers, controller_host, controller_port, channel_port)

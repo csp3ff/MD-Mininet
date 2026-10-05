@@ -10,12 +10,15 @@ controller_opts=()
 controller_host_selected=false
 controller_port_selected=false
 deployment_opts=()
+channel_opts=()
+channel_selected=false
 
 usage() {
     cat <<'EOF'
 Usage: ./start.sh [--all-workers | --worker WORKER_ID] [--scene PATH]
                   [--controller-host IPv4] [--controller-port PORT]
                   [--deployment PATH]
+                  [--channel] [--channel-control-port PORT]
 
 Without options, start the complete example topology on this machine.
 The scene path is relative to the project root unless absolute.
@@ -83,6 +86,23 @@ while (($#)); do
             controller_port_selected=true
             shift 2
             ;;
+        --channel)
+            if [[ "$channel_selected" == true ]]; then
+                echo "--channel may be specified once." >&2
+                exit 2
+            fi
+            channel_opts+=(--channel)
+            channel_selected=true
+            shift
+            ;;
+        --channel-control-port)
+            if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then
+                echo "--channel-control-port requires one port number." >&2
+                exit 2
+            fi
+            channel_opts+=(--channel-control-port "$2")
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -119,4 +139,4 @@ if ((EUID != 0)); then
     exit 1
 fi
 
-exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}" "${deployment_opts[@]}"
+exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}" "${deployment_opts[@]}" "${channel_opts[@]}"

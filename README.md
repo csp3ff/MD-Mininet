@@ -2,7 +2,7 @@
 
 MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完整拓扑和多台物理机分区运行。每台 Worker 电脑安装**同一份源码**、读取**同一份场景配置**，再用不同的 Worker ID 选择本机负责的节点和链路。当前示例有 A、B 两个分区，每个分区包含 8 台模拟主机和 2 台模拟交换机。
 
-> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。通用链路模型目前只计算一个静态快照，已有单链路公开规格参考配置；下一步需采集目标设备参数、实现节点状态演化，再按仿真时间下发单向链路状态。后续分别实现无线、有线模型，Docker 容器化推迟。详见根目录的 [研究计划](RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
+> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。中央控制器发布链路时间片的源码已加入，但尚未运行部署或代码测试；完整数据和现场验收仍待完成。详见 [链路时间片说明](CHANNEL_TIMELINE.md)与 [研究计划](RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
 
 ## 开发进度与下一阶段
 
@@ -13,8 +13,9 @@ MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完�
 - [x] 实现独立的集中式 Ryu 控制器、端口核对、IPv4/ARP 流表安装与 Barrier 回执处理。
 - [x] **使用者运行反馈：** 分布式网络已搭建，任意两个模拟主机当前可以相互发包；曾查看到 `sa1` 的规则及命中计数。
 - [x] **P1 源码进展：** 已写入带节点参数来源字段校验的通用双向静态快照计算和只读 `channel-plan` 命令；参考配置已完成 `la1` 双向计算的只读运行验证。
+- [x] **时间片源码进展：** 已加入版本 2 数据校验、中央控制器直发、Worker 出口整形及跨机独立整形路径；这些新增路径均未运行验证，参考文件只覆盖 `la1`。
 - [ ] **P1 数据与演化：** 为拟模拟设备采集有参考依据的能力与初始状态，增加节点状态、共享环境、仿真时间和可复现演化规则，再核对状态序列。
-- [ ] **P2 参数下发：** 将按仿真时间产生的单向状态序列应用到本地链路及跨 Worker 的 VXLAN 链路，并测量实际效果。
+- [ ] **P2 运行验收：** 实测本地链路与跨 Worker VXLAN 的双向整形、时延、切换错位、失联关停和资源清理；当前只有未运行的实现代码。
 - [ ] **P3 无线与有线模型：** 分别补充两类介质的输入参数与计算方法，共用 P1 输出和 P2 下发路径。
 - [ ] **P4 稳定性与复现：** 完成性能标定、状态检查、异常退出恢复、故障场景和多轮实验记录；扩展三台及以上 Worker 的验收。
 - [ ] **P5 按需评估 Docker：** 推迟每节点容器化；需要独立软件环境或交换机进程时再决定是否引入。
@@ -89,15 +90,15 @@ Worker A 和 Worker B 分别查看自己的规划：
 
 示例场景位于 [`configs/two_workers.json`](configs/two_workers.json)。第一版把两个“网络”定义为拓扑和部署分区，所有模拟主机共用 `10.77.0.0/24`；它们目前不是两个独立的 IP 子网。修改示例时，应保持节点 ID、主机 IP/MAC、交换机 DPID 和链路 ID 全局唯一。每台主机当前只能有一条业务链路，跨 Worker 链路只能连接交换机。
 
-### 只读通用信道规划（P1）
+### 信道规划：版本 1 物理输入与版本 2 时间片
 
-源码提供 `md-mininet channel-plan 场景文件 信道配置文件`。信道配置独立于现有拓扑文件，并用 `scene_digest` 绑定场景，因此旧场景与当前控制器无需修改。配置 JSON 顶层包含 `version=1`、`scene_digest`、正整数 `revision`、带时区的 `effective_time`、`ports` 和 `links`。
+源码提供只读的 `md-mininet channel-plan 场景文件 信道配置文件`。以下三条描述保留的 **版本 1 物理输入**；新参考文件已经升级为版本 2，格式与运行方式见 [链路时间片说明](CHANNEL_TIMELINE.md)。版本 1 顶层包含 `version=1`、`scene_digest`、正整数 `revision`、带时区的 `effective_time`、`ports` 和 `links`。
 
 - `ports` 中每项对应一条逻辑链路的一个端点，包含 `link_id`、`node_id`、`port_type`、正数 `rate_mbps` 和 `source`。`source` 必须给出 `kind`（`device_readout`、`field_measurement` 或 `datasheet`）、`reference`、真实 `device_model`、带时区的 `recorded_at`。这些字段描述拟模拟的真实设备，不能从 Mininet 的 veth/OVS 虚拟端口读取后冒充设备规格。
 - `links` 中每项包含 `link_id`、`model="generic"`、`a_to_b` 和 `b_to_a`。每个方向都要给出 `available`、正数 `nominal_bandwidth_mbps`、非负 `distance_m`（实际传播路径长度，米）、大于零且不超过真空光速的 `propagation_speed_mps`（该介质中的传播速度，米/秒）和 `source`；`source` 含 `kind`（`measurement`、`datasheet` 或 `scenario_assumption`）、`reference`、带时区的 `recorded_at`，用于区分测量值与场景设定。名义容量不得超过两个端点中较低的有来源端口速率，配置错误会直接报出，不再靠输出时取最小值掩盖。可选 `max_distance_m` 是该方向明确给出的正数场景上界，提供后 `distance_m` 不得超过它；这不是所有介质通用的物理极限。可选 `velocity_factor_of_c` 须在 0 到 1 之间，提供后必须与 `propagation_speed_mps / 299792458` 一致。输出的 `delay_ms = 1000 × distance_m / propagation_speed_mps` **仅为单向传播时延**，不含发送/序列化、交换处理、排队或重传时延。可选 `jitter_ms`、`loss_pct`；未提供时输出 `null`，不自动猜测。仅有端口速率、带宽、频率或发射功率，无法推出传播时延；缺少长度或传播速度时配置报错。
 - 可以只配置部分链路以做小规模研究；已配置链路必须包含两个端点的来源数据及两个方向。输出列出 `modeled_links`、`unmodeled_links` 和每个方向的 `ChannelState`，便于识别覆盖缺口。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 是用于只读规划的最小**有线**参考配置，绑定示例场景摘要，仅覆盖 `ha1`—`sa1` 的 `la1`，其余 18 条链路在输出中标为未建模；其数值不能直接套用到无人机、车辆或卫星链路。`ha1` 端的 1000 Mb/s 参考 [Intel I210-AT 官方规格](https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html)，`sa1` 端口的 1000 Mb/s 参考 [NETGEAR GS108v3 官方规格](https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf)。这些是**拟模拟设备的参考端口能力**，不表示物理 Worker 实际装有这些设备，也不表示 GS108v3 是当前的 OpenFlow 交换机；当前交换机仍为 OVS。链路方向上的名义容量设为参考端口上限。传播路径长度 **100 m 是场景设定**，不是已测线长；该例同时设置 `max_distance_m=100`，作为所选 [1000BASE-T 百米链路参考](https://www.ieee802.org/3/10GBT/public/material/diminico_IWCS.PDF)下的建模上界，并不声称所有设备超过 100 m 就必然断链。传播速度取 [Belden 2412 电缆规格](https://catalog.belden.com/techdata/EN/2412_techdata.pdf)中标称的真空光速 70%，并用 `velocity_factor_of_c=0.7` 与数值互相核对；以 [NIST 的真空光速](https://www.nist.gov/si-redefinition/definitions-si-base-units)换算为 209854720.6 m/s。该电缆规格还列出 100 MHz 时最大传播时延 537.6 ns/100 m，和这里按标称速度得到的结果不是同一种保证值。因此计算的是这条**假设电缆**的标称传播时延，不是实际部署的单向时延；抖动和丢包未建模。
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路明确未建模，不能作为中央控制器的正式运行输入。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；0.0004765 ms 来自假设 100 m 电缆的传播估计，在此样例中直接作为 netem **附加**时延。它不是 Mininet 报文总时延，也不能据此声称精确复现亚微秒传播。
 
 在项目根目录运行只读规划：
 
@@ -105,13 +106,11 @@ Worker A 和 Worker B 分别查看自己的规划：
 PYTHONPATH=src python3 -m channel_mininet.cli channel-plan configs/two_workers.json configs/channel_profile.reference.json
 ```
 
-按上述参考数据计算，`la1` 的 a→b、b→a 目标值各为 1000 Mb/s，标称传播时延各约 0.0004765 ms（0.4765 µs）；`jitter_ms` 和 `loss_pct` 为 `null`。本次约束修改后未运行该命令复核。该命令只解析配置并计算一个静态目标快照，不表示节点移动或参数随时间演化；它不会设置 veth、OVS 或 `tc`，也不代表 P2 参数下发已经实现。换用实际设备时，应以设备只读信息或对应型号规格替换参考参数，以布线记录/现场测量替换假设线长，核对对应介质的传播速度，并更新场景摘要。
-来源字段是否齐全由程序检查，来源内容及设备型号是否真实匹配仍需人工核对。
-当前拓扑只支持已声明的链路，且每台主机只有一条业务链路；未来的状态演化可以先改变这些链路的参数/可用性，新的邻接关系或切换接入点还需要扩展拓扑与路由逻辑。
+`channel-plan` 对版本 2 显示每片的链路覆盖、双向参数及发送出口；它不创建或配置网络。来源字段由程序校验，来源内容仍需人工核对。完整版本 2 文件由中央控制器加载并直接向 Worker 发布；具体启动方式和同步语义见 [链路时间片说明](CHANNEL_TIMELINE.md)。
 
 ## 4. 启动单机基础网络
 
-安装 Mininet 与 OVS，并确保它们能被当前虚拟环境使用后，在项目根目录执行以下命令。`up` 会实际创建网络命名空间、veth 和 OVS 桥，需要 root 权限；**项目当前约定暂不由本次文档工作执行部署或测试。** 分布式受控模式已有使用者互通反馈；下述单机基础模式尚无单独验收记录。
+安装 Mininet 与 OVS，并确保它们能被当前虚拟环境使用后，在项目根目录执行以下命令。`up` 会实际创建网络命名空间、veth 和 OVS 桥，需要 root 权限；**项目当前约定暂不运行部署或代码测试。** 分布式受控模式已有使用者互通反馈；下述单机基础模式尚无单独验收记录。
 
 ```bash
 sudo ./start.sh

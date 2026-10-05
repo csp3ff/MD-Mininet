@@ -25,6 +25,11 @@ class Tunnel:
     vni: int
 
 
+def _private_name(tunnel: Tunnel, prefix: str) -> str:
+    identity = f"{tunnel.link_id}\0{tunnel.switch_id}\0{prefix}".encode("utf-8")
+    return prefix + blake2s(identity, digest_size=7).hexdigest()
+
+
 def plan_tunnels(scene: Scene, deployment: Deployment, worker_id: str) -> tuple[Tunnel, ...]:
     """Assign a stable VNI and the same port name expected by the controller."""
 
@@ -93,6 +98,72 @@ def add_tunnel(tunnel: Tunnel, owner: str) -> None:
         raise RuntimeError(f"cannot create VXLAN port {tunnel.port_name}: {exc}") from exc
     if result.returncode != 0:
         raise RuntimeError(f"cannot create VXLAN port {tunnel.port_name}: {result.stderr.strip()}")
+
+
+def _run(command: list[str]) -> str:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=15)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"cannot run {' '.join(command)}: {exc}") from exc
+    if result.returncode:
+        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def add_shaped_tunnel(tunnel: Tunnel, owner: str) -> None:
+    """Put a dedicated veth egress between the logical switch and VXLAN.
+
+    The switch-side veth keeps the controller's existing expected port name.
+    Its egress qdisc shapes only traffic sent toward this one tunnel.
+    """
+    bridge = _private_name(tunnel, "b")
+    peer = _private_name(tunnel, "p")
+    vxlan = _private_name(tunnel, "v")
+    created_veth = False
+    created_bridge = False
+    try:
+        _run(["ip", "link", "add", tunnel.port_name, "type", "veth", "peer", "name", peer])
+        created_veth = True
+        _run(["ovs-vsctl", "--timeout=10", "add-br", bridge])
+        created_bridge = True
+        _run(["ovs-vsctl", "--timeout=10", "set", "Bridge", bridge,
+              f"external_ids:mdnet_owner={owner}"])
+        _run(["ovs-vsctl", "--timeout=10", "add-port", tunnel.switch_id, tunnel.port_name,
+              "--", "set", "Interface", tunnel.port_name,
+              f"external_ids:mdnet_owner={owner}"])
+        _run(["ovs-vsctl", "--timeout=10", "add-port", bridge, peer])
+        _run(["ovs-vsctl", "--timeout=10", "add-port", bridge, vxlan,
+              "--", "set", "Interface", vxlan, "type=vxlan",
+              f"options:local_ip={tunnel.local_ip}",
+              f"options:remote_ip={tunnel.remote_ip}",
+              f"options:key={tunnel.vni}", "options:dst_port=4789"])
+        _run(["ip", "link", "set", "dev", tunnel.port_name, "up"])
+        _run(["ip", "link", "set", "dev", peer, "up"])
+    except Exception:
+        if created_bridge:
+            subprocess.run(["ovs-vsctl", "--timeout=10", "--if-exists", "del-br", bridge],
+                           capture_output=True, check=False)
+        if created_veth:
+            subprocess.run(["ip", "link", "del", tunnel.port_name],
+                           capture_output=True, check=False)
+        raise
+
+
+def remove_shaped_tunnels(tunnels: list[Tunnel], owner: str) -> None:
+    """Remove only bridges tagged with this process's owner token."""
+    for tunnel in reversed(tunnels):
+        bridge = _private_name(tunnel, "b")
+        try:
+            current = _run(["ovs-vsctl", "--timeout=10", "--if-exists", "get",
+                            "Bridge", bridge, "external_ids:mdnet_owner"])
+            if current.strip('"') != owner:
+                continue
+            _run(["ovs-vsctl", "--timeout=10", "--if-exists", "del-br", bridge])
+            _run(["ovs-vsctl", "--timeout=10", "--if-exists", "del-port",
+                  tunnel.switch_id, tunnel.port_name])
+            _run(["ip", "link", "del", tunnel.port_name])
+        except RuntimeError as exc:
+            print(f"Could not remove shaped tunnel {tunnel.port_name}: {exc}", file=sys.stderr)
 
 
 def remove_tunnels(tunnels: list[Tunnel], owner: str) -> None:

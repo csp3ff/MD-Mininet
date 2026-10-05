@@ -8,17 +8,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import os
+from queue import Empty, SimpleQueue
 from typing import Any
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, DEAD_DISPATCHER, MAIN_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
+from ryu.lib import hub
 
 from channel_mininet.control.flow_manager import FlowRule, compile_flow_rules
 from channel_mininet.control.routing import build_routes
+from channel_mininet.channel_schedule import load_channel_schedule
 from channel_mininet.runtime.names import planned_interface_names
 from channel_mininet.schema import SceneError, load_scene, scene_fingerprint
+from controller.central.channel_server import ChannelServer
 
 
 _COOKIE = 0x4D444E5400000000  # "MDNT" in the high 32 bits.
@@ -71,7 +75,51 @@ class CentralController(app_manager.RyuApp):
         self.port_requests: dict[int, _PortRequest] = {}
         self.install_batches: dict[int, _InstallBatch] = {}
         self.ready: set[int] = set()
+        self.channel_server: ChannelServer | None = None
+        self.channel_active_workers: set[str] = set()
+        self._channel_events: SimpleQueue[tuple[frozenset[str], bool]] = SimpleQueue()
+        self._channel_running = True
+        self._channel_event_task = hub.spawn(self._channel_event_loop)
+        profile_path = os.environ.get("MDNET_CHANNEL_PROFILE")
+        if profile_path:
+            schedule = load_channel_schedule(profile_path, self.scene, complete=True)
+            self.channel_server = ChannelServer(
+                self.scene, schedule, os.environ["MDNET_CHANNEL_HOST"],
+                int(os.environ["MDNET_CHANNEL_PORT"]), self.logger,
+                self._on_channel_worker,
+            )
+            self.channel_server.start()
         self.logger.info("Loaded scene %s (digest %s)", self.scene.experiment, scene_fingerprint(self.scene))
+
+    def close(self) -> None:
+        self._channel_running = False
+        if self.channel_server is not None:
+            self.channel_server.close()
+        super().close()
+
+    def _on_channel_worker(self, workers: frozenset[str], active: bool) -> None:
+        self._channel_events.put((workers, active))
+
+    def _channel_event_loop(self) -> None:
+        while self._channel_running:
+            try:
+                workers, active = self._channel_events.get_nowait()
+            except Empty:
+                hub.sleep(0.05)
+                continue
+            self._set_channel_workers(workers, active)
+
+    def _set_channel_workers(self, workers: frozenset[str], active: bool) -> None:
+        if active:
+            self.channel_active_workers.update(workers)
+        else:
+            self.channel_active_workers.difference_update(workers)
+        for switch in self.scene.switches:
+            if switch.worker not in workers:
+                continue
+            datapath = self.datapaths.get(int(switch.dpid, 16))
+            if datapath is not None:
+                self._request_ports(datapath)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev: Any) -> None:
@@ -128,6 +176,10 @@ class CentralController(app_manager.RyuApp):
 
     def _reconcile(self, datapath: Any, ports: list[Any]) -> None:
         switch_id = self.switch_ids[datapath.id]
+        if (self.channel_server is not None and
+                self.scene.nodes[switch_id].worker not in self.channel_active_workers):
+            self._replace_flows(datapath, ())
+            return
         expected = self.expected_ports[switch_id]
         observed: dict[str, int] = {}
         down: set[str] = set()

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import sys
 
 from channel_mininet.control.neighbors import build_static_neighbors
 from channel_mininet.control.routing import build_routes
 from channel_mininet.channel import build_channel_states, load_channel_profile
-from channel_mininet.runtime.names import planned_interface_names
+from channel_mininet.channel_schedule import load_channel_schedule
+from channel_mininet.runtime.names import interface_name, planned_interface_names
 from channel_mininet.runtime.deployment import load_deployment
 from channel_mininet.runtime.vxlan import plan_tunnels
 from channel_mininet.runtime.worker import run_basic_network
@@ -42,6 +44,10 @@ def _parser() -> argparse.ArgumentParser:
     up.add_argument("--controller-host", help="IPv4 address of an independently running controller")
     up.add_argument("--controller-port", type=int)
     up.add_argument("--deployment", help="shared multi-machine deployment YAML or JSON")
+    up.add_argument("--channel", action="store_true",
+                    help="receive controller-published channel time slices")
+    up.add_argument("--channel-control-port", type=int,
+                    help="central controller channel port (default 6654)")
     return parser
 
 
@@ -59,16 +65,66 @@ def main(argv: list[str] | None = None) -> int:
                 if args.controller_host is not None or args.controller_port is not None:
                     raise SceneError("--deployment supplies the controller address; omit --controller-host/port")
                 deployment = load_deployment(args.deployment, scene)
+            if args.channel_control_port is not None and not args.channel:
+                raise SceneError("--channel-control-port requires --channel")
+            if args.channel_control_port is not None and not 1 <= args.channel_control_port <= 65535:
+                raise SceneError("--channel-control-port must be between 1 and 65535")
+            if args.channel and deployment is None and args.controller_host is None:
+                raise SceneError("--channel requires a central controller")
+            if args.channel and deployment is not None and args.channel_control_port is not None:
+                raise SceneError("--deployment supplies the channel control port")
+            channel_port = (
+                deployment.channel_port if deployment else
+                6654 if args.channel_control_port is None else args.channel_control_port
+            ) if args.channel else None
+            openflow_port = (deployment.controller_port if deployment else
+                             6653 if args.controller_port is None else args.controller_port)
+            if channel_port is not None and channel_port == openflow_port:
+                raise SceneError("channel control port must differ from OpenFlow port")
             run_basic_network(
                 scene,
                 None if args.all_workers else args.worker,
                 controller_host=(str(deployment.controller_host) if deployment else args.controller_host),
-                controller_port=(deployment.controller_port if deployment else
-                                 6653 if args.controller_port is None else args.controller_port),
+                controller_port=openflow_port,
+                channel_port=channel_port,
                 deployment=deployment,
             )
             return 0
         if args.command == "channel-plan":
+            try:
+                version = json.loads(Path(args.profile).read_text(encoding="utf-8")).get("version")
+            except (OSError, ValueError, AttributeError) as exc:
+                raise SceneError(f"cannot inspect channel profile {args.profile}: {exc}") from exc
+            if version == 2:
+                schedule = load_channel_schedule(args.profile, scene, complete=False)
+                result = {
+                    "scene_digest": schedule.scene_digest,
+                    "channel_schedule_digest": schedule.digest,
+                    "revision": schedule.revision,
+                    "snapshots": [],
+                }
+                for snapshot in schedule.snapshots:
+                    covered = {link.link_id for link in snapshot.links}
+                    entries = []
+                    for target in snapshot.links:
+                        link = scene.links_by_id[target.link_id]
+                        for direction, sender in (("a_to_b", link.a), ("b_to_a", link.b)):
+                            values = getattr(target, direction)
+                            entries.append({
+                                "link_id": target.link_id, "direction": direction,
+                                "worker": scene.nodes[sender].worker,
+                                "egress_interface": interface_name(scene.experiment, target.link_id, sender),
+                                **values.to_dict(),
+                            })
+                    result["snapshots"].append({
+                        "index": snapshot.index, "sim_time_ms": snapshot.sim_time_ms,
+                        "digest": snapshot.digest,
+                        "modeled_links": sorted(covered),
+                        "unmodeled_links": sorted(set(scene.links_by_id) - covered),
+                        "states": entries,
+                    })
+                print(json.dumps(result, indent=2, sort_keys=True))
+                return 0
             profile = load_channel_profile(args.profile, scene)
             states = build_channel_states(scene, profile)
             modeled = {state.link_id for state in states}

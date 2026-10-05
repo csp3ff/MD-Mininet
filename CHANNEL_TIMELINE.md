@@ -1,0 +1,49 @@
+# 中央控制器发布的链路时间片
+
+本功能的源码已经接入，但按项目约定尚未运行部署或代码测试。物理链路效果、跨机 VXLAN 整形路径、时钟误差和故障关停时长均待现场验收。
+
+## 文件格式与数值含义
+
+中央控制器读取版本 2 的 JSON 时间片文件。顶层有 `version: 2`、与场景匹配的 `scene_digest`、正整数 `revision` 和 `snapshots`。每片含严格递增的整数 `sim_time_ms`，首片必须为 0；每片列出场景的全部 `link_id`。每条链路的 `a_to_b`、`b_to_a` 分别有正数 `bandwidth_mbps`、非负 `netem_delay_ms`，以及 `source: {kind, reference, recorded_at}`；`kind` 为 `measurement`、`simulation` 或 `scenario_assumption`。`recorded_at` 是带时区的 ISO 8601 时间。相邻时间片之间沿用上一片状态。
+
+`bandwidth_mbps` 是发送出口的目标整形速率，不是物理端口标称速率或业务实测吞吐。`netem_delay_ms` 是直接加在出口的 **附加时延**，不是链路报文总单向时延，也不同于旧版 `ChannelState.delay_ms` 所表示的物理传播时延。样例中的 0.0004765 ms 来自假设的 100 m 电缆传播估计，作为 netem 附加值展示格式；普通 Mininet 中不能据此声称精确重现亚微秒传播时间。
+
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 只覆盖 `la1`，供只读 `channel-plan` 预览。它缺少其余 18 条链路，中央控制器的 `--channel-profile` 会拒绝它。正式运行需要 MATLAB 或采集流程提供完整、有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
+
+正式运行文件中的非零 `netem_delay_ms` 至少为 0.001 ms（1 µs）；更小的数值可以规划预览，但加载运行文件时会报错。`tc` 文档说明时间参数的常用单位为微秒，实际计时粒度仍需现场测量。[tc 时间单位](https://man7.org/linux/man-pages/man8/tc.8.html)
+
+## 启动接口
+
+只读查看样例：
+
+```bash
+./.venv/bin/md-mininet channel-plan configs/two_workers.json configs/channel_profile.reference.json
+```
+
+取得**完整**时间片文件后，中央控制器独自加载它：
+
+```bash
+./.venv/bin/md-controller configs/two_workers.json \
+  --listen-host CONTROLLER_IP --listen-port 6653 \
+  --channel-profile COMPLETE_SCHEDULE.json \
+  --channel-control-host CONTROLLER_IP --channel-control-port 6654
+```
+
+每台 Worker 使用同一场景和部署配置，分别启动 `--worker a`、`--worker b` 并加 `--channel`。部署文件 `controller.channel_port` 缺省为 6654。单机 `--all-workers` 也可通过 `--controller-host` 和 `--channel` 连接中央控制器。Worker 不读取时间片文件；控制器通过独立 TCP 通道发送完整时间片，Worker 只应用自己负责的出口。域控制器目前没有实现，信道通道不依赖它。
+
+```bash
+# 在 Worker a 机器上
+sudo ./start.sh --worker a --deployment configs/deployment.yml --channel
+# 在 Worker b 机器上
+sudo ./start.sh --worker b --deployment configs/deployment.yml --channel
+```
+
+控制器的信道 TCP 端口需对 Worker 可达，并应限制在可信的实验网络中；当前协议按场景和 Worker ID 校验消息，但不提供独立的身份认证。
+
+## 调度与故障
+
+中央控制器生成 `run_id`，等待所有 Worker 连接，再逐片执行 `PREPARE → READY → COMMIT → APPLIED`。`PREPARE` 包含完整快照、摘要和未来生效时刻；只有全部 Worker 确认后才发送 `COMMIT`。Worker 在该时刻配置本地发送出口，返回每个 Worker 的实际完成时间。首片启动后，后续时刻按首片的控制器计划时间加 `sim_time_ms` 计算；若准备来不及、缺少确认或应用失败，实验标记失败并向在线 Worker 发送停止消息。
+
+Worker 与中央控制器的信道连接失效时会关闭本机负责的实验接口；控制器也会撤销该 Worker 的路由流表。重连后由控制器重新发送当前已成功应用的时间片，Worker 完成后才恢复。正常切换不主动暂停业务，但各机时钟和逐接口 `tc` 操作仍会造成短暂错位。日志中的跨 Worker 时间差取自 Worker 报告的系统时钟；要把它用于验收，必须先核对物理机时钟同步。当前故障关停由进程和 OpenFlow 控制面触发，异常断电或 `SIGKILL` 后的遗留网络资源仍需单独处理。
+
+本地链路在发送端的 veth 出口使用 HTB 与 netem。跨 Worker 的每个 VXLAN 端点增加独立的双端口 OVS 桥和 veth；主交换机上的 veth 保留原逻辑端口名，出口配置该方向的参数，不对共享物理网卡统一限速。正常退出只清理本进程创建并标记所有权的桥、隧道和接口。
