@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("scene", help="scene JSON shared with the Mininet workers")
     parser.add_argument("--listen-host", default="127.0.0.1")
     parser.add_argument("--listen-port", type=int, default=6653)
-    parser.add_argument("--channel-profile", help="complete version-2 channel timeline")
+    parser.add_argument("--channel-profile", help="version-2 channel timeline; omitted links stay at Mininet defaults")
     parser.add_argument("--channel-control-host", help="channel listener address (defaults to --listen-host)")
     parser.add_argument("--channel-control-port", type=int, default=6654)
     args = parser.parse_args(argv)
@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         scene = load_scene(scene_path)
         build_routes(scene)
         if args.channel_profile:
-            load_channel_schedule(args.channel_profile, scene, complete=True)
+            load_channel_schedule(args.channel_profile, scene)
     except SceneError as exc:
         parser.error(str(exc))
 

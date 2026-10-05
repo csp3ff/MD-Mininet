@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
             except (OSError, ValueError, AttributeError) as exc:
                 raise SceneError(f"cannot inspect channel profile {args.profile}: {exc}") from exc
             if version == 2:
-                schedule = load_channel_schedule(args.profile, scene, complete=False)
+                schedule = load_channel_schedule(args.profile, scene)
                 result = {
                     "scene_digest": schedule.scene_digest,
                     "channel_schedule_digest": schedule.digest,
@@ -120,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
                         "index": snapshot.index, "sim_time_ms": snapshot.sim_time_ms,
                         "digest": snapshot.digest,
                         "modeled_links": sorted(covered),
+                        "default_links": sorted(set(scene.links_by_id) - covered),
                         "unmodeled_links": sorted(set(scene.links_by_id) - covered),
                         "states": entries,
                     })

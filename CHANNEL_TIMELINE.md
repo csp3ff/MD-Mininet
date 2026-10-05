@@ -4,13 +4,15 @@
 
 ## 文件格式与数值含义
 
-中央控制器读取版本 2 的 JSON 时间片文件。顶层有 `version: 2`、与场景匹配的 `scene_digest`、正整数 `revision` 和 `snapshots`。每片含严格递增的整数 `sim_time_ms`，首片必须为 0；每片列出场景的全部 `link_id`。每条链路的 `a_to_b`、`b_to_a` 分别有正数 `bandwidth_mbps`、非负 `netem_delay_ms`，以及 `source: {kind, reference, recorded_at}`；`kind` 为 `measurement`、`simulation` 或 `scenario_assumption`。`recorded_at` 是带时区的 ISO 8601 时间。相邻时间片之间沿用上一片状态。
+中央控制器读取版本 2 的 JSON 时间片文件。顶层有 `version: 2`、与场景匹配的 `scene_digest`、正整数 `revision` 和 `snapshots`。每片含严格递增的整数 `sim_time_ms`，首片必须为 0。每片的 `links` 只列出需要配置的链路；未列出的链路保持普通 Mininet 默认配置。列出的每条链路都必须同时提供 `a_to_b`、`b_to_a`，分别有正数 `bandwidth_mbps`、非负 `netem_delay_ms`，以及 `source: {kind, reference, recorded_at}`；`kind` 为 `measurement`、`simulation` 或 `scenario_assumption`。`recorded_at` 是带时区的 ISO 8601 时间。相邻时间片之间沿用上一片状态；下一个时间片若省略先前配置的链路，Worker 会删除自己为它安装的整形规则，让它恢复默认。所有实验接口在首次 `APPLIED` 前仍按统一调度要求暂时关闭，控制器失联时也会关闭以避免继续使用过期时间片。
 
 `bandwidth_mbps` 是发送出口的目标整形速率，不是物理端口标称速率或业务实测吞吐。`netem_delay_ms` 是直接加在出口的 **附加时延**，不是链路报文总单向时延，也不同于旧版 `ChannelState.delay_ms` 所表示的物理传播时延。样例中的 0.0004765 ms 来自假设的 100 m 电缆传播估计，作为 netem 附加值展示格式；普通 Mininet 中不能据此声称精确重现亚微秒传播时间。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 只覆盖 `la1`，供只读 `channel-plan` 预览。它缺少其余 18 条链路，中央控制器的 `--channel-profile` 会拒绝它。正式运行需要 MATLAB 或采集流程提供完整、有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 只配置 `la1`，其余 18 条链路保持默认；中央控制器现在可以直接加载这个参考文件。正式研究如需这些链路的目标带宽和时延，应由 MATLAB 或采集流程提供有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
 
-正式运行文件中的非零 `netem_delay_ms` 至少为 0.001 ms（1 µs）；更小的数值可以规划预览，但加载运行文件时会报错。`tc` 文档说明时间参数的常用单位为微秒，实际计时粒度仍需现场测量。[tc 时间单位](https://man7.org/linux/man-pages/man8/tc.8.html)
+例如，`sudo ./start.sh --worker a --deployment configs/deployment.yml` 未指定 `--channel`，只创建普通 Mininet 链路，完全不读取参考文件，也不会设置 HTB/netem。启用信道后，`la1` 样例的 0.0004765 ms 下发时按四舍五入量化为 477 ns；往返经过该链路两次约增加 0.954 µs，不能凭普通 `ping` 的毫秒级输出稳定分辨。验收应先确认中央控制器已加载文件且每个 Worker 报告 `APPLIED`，再检查对应发送接口的 `tc qdisc/class` 配置，并使用有足够分辨率的测量方法。
+
+`netem_delay_ms` 在下发时换算为整数纳秒；非零值若量化为 0 ns 则拒绝。`iproute2` 的 netem 使用纳秒的 64 位延迟参数并接受 `ns` 单位，但内核定时和排队会限制实际效果，亚微秒目标须现场测量。[iproute2 netem 源码](https://github.com/iproute2/iproute2/blob/main/tc/q_netem.c)、[时间解析源码](https://kernel.googlesource.com/pub/scm/network/iproute2/iproute2-next/+/c99a85a7c8eb5cafbe0f4f681b108a58617c983b/lib/utils.c)
 
 ## 启动接口
 
@@ -20,13 +22,13 @@
 ./.venv/bin/md-mininet channel-plan configs/two_workers.json configs/channel_profile.reference.json
 ```
 
-取得**完整**时间片文件后，中央控制器独自加载它：
+中央控制器独自加载参考文件或其他版本 2 时间片文件：
 
 ```bash
 ./.venv/bin/md-controller configs/two_workers.json \
-  --listen-host CONTROLLER_IP --listen-port 6653 \
-  --channel-profile COMPLETE_SCHEDULE.json \
-  --channel-control-host CONTROLLER_IP --channel-control-port 6654
+  --listen-host 192.168.145.132 --listen-port 6653 \
+  --channel-profile configs/channel_profile.reference.json \
+  --channel-control-host 192.168.145.132 --channel-control-port 6654
 ```
 
 每台 Worker 使用同一场景和部署配置，分别启动 `--worker a`、`--worker b` 并加 `--channel`。部署文件 `controller.channel_port` 缺省为 6654。单机 `--all-workers` 也可通过 `--controller-host` 和 `--channel` 连接中央控制器。Worker 不读取时间片文件；控制器通过独立 TCP 通道发送完整时间片，Worker 只应用自己负责的出口。域控制器目前没有实现，信道通道不依赖它。
@@ -39,6 +41,8 @@ sudo ./start.sh --worker b --deployment configs/deployment.yml --channel
 ```
 
 控制器的信道 TCP 端口需对 Worker 可达，并应限制在可信的实验网络中；当前协议按场景和 Worker ID 校验消息，但不提供独立的身份认证。
+
+如果 Worker 显示 `Connection refused`，说明它连接的控制器地址和信道端口（部署文件中默认为 `192.168.145.132:6654`）没有接受连接。OpenFlow 的 `6653` 端口能连接，不代表信道端口已经启动。应先在中央控制器机器上按上面的命令启动控制器，再核对控制器日志中的 `Channel run ... listening` 和 Worker 侧的 `APPLIED` 回报。仅启动不带 `--channel-profile` 的控制器不会监听 6654。命令中的 `CONTROLLER_IP` 若直接照字面输入也不能绑定为有效 IP，应填写控制器机器实际使用的地址。
 
 ## 调度与故障
 

@@ -98,7 +98,7 @@ Worker A 和 Worker B 分别查看自己的规划：
 - `links` 中每项包含 `link_id`、`model="generic"`、`a_to_b` 和 `b_to_a`。每个方向都要给出 `available`、正数 `nominal_bandwidth_mbps`、非负 `distance_m`（实际传播路径长度，米）、大于零且不超过真空光速的 `propagation_speed_mps`（该介质中的传播速度，米/秒）和 `source`；`source` 含 `kind`（`measurement`、`datasheet` 或 `scenario_assumption`）、`reference`、带时区的 `recorded_at`，用于区分测量值与场景设定。名义容量不得超过两个端点中较低的有来源端口速率，配置错误会直接报出，不再靠输出时取最小值掩盖。可选 `max_distance_m` 是该方向明确给出的正数场景上界，提供后 `distance_m` 不得超过它；这不是所有介质通用的物理极限。可选 `velocity_factor_of_c` 须在 0 到 1 之间，提供后必须与 `propagation_speed_mps / 299792458` 一致。输出的 `delay_ms = 1000 × distance_m / propagation_speed_mps` **仅为单向传播时延**，不含发送/序列化、交换处理、排队或重传时延。可选 `jitter_ms`、`loss_pct`；未提供时输出 `null`，不自动猜测。仅有端口速率、带宽、频率或发射功率，无法推出传播时延；缺少长度或传播速度时配置报错。
 - 可以只配置部分链路以做小规模研究；已配置链路必须包含两个端点的来源数据及两个方向。输出列出 `modeled_links`、`unmodeled_links` 和每个方向的 `ChannelState`，便于识别覆盖缺口。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路明确未建模，不能作为中央控制器的正式运行输入。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；0.0004765 ms 来自假设 100 m 电缆的传播估计，在此样例中直接作为 netem **附加**时延。它不是 Mininet 报文总时延，也不能据此声称精确复现亚微秒传播。
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路保持普通 Mininet 默认配置。该文件现在可以由中央控制器加载。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；0.0004765 ms 来自假设 100 m 电缆的传播估计，在此样例中直接作为 netem **附加**时延，下发时按四舍五入量化为 477 ns。它不是 Mininet 报文总时延，也不能据此声称精确复现亚微秒传播。
 
 在项目根目录运行只读规划：
 
@@ -106,7 +106,7 @@ Worker A 和 Worker B 分别查看自己的规划：
 PYTHONPATH=src python3 -m channel_mininet.cli channel-plan configs/two_workers.json configs/channel_profile.reference.json
 ```
 
-`channel-plan` 对版本 2 显示每片的链路覆盖、双向参数及发送出口；它不创建或配置网络。来源字段由程序校验，来源内容仍需人工核对。完整版本 2 文件由中央控制器加载并直接向 Worker 发布；具体启动方式和同步语义见 [链路时间片说明](CHANNEL_TIMELINE.md)。
+`channel-plan` 对版本 2 显示每片的已配置链路、保持默认的链路、双向参数及发送出口；它不创建或配置网络。来源字段由程序校验，来源内容仍需人工核对。版本 2 文件由中央控制器加载并直接向 Worker 发布；具体启动方式和同步语义见 [链路时间片说明](CHANNEL_TIMELINE.md)。
 
 ## 4. 启动单机基础网络
 

@@ -19,11 +19,10 @@ class ChannelScheduleTests(unittest.TestCase):
         self.scene = load_scene(ROOT / "configs/two_workers.json")
         self.reference = json.loads((ROOT / "configs/channel_profile.reference.json").read_text())
 
-    def test_partial_reference_is_preview_only(self) -> None:
-        schedule = schedule_from_dict(self.reference, self.scene, complete=False)
+    def test_partial_reference_leaves_other_links_at_defaults(self) -> None:
+        schedule = schedule_from_dict(self.reference, self.scene)
         self.assertEqual(schedule.snapshots[0].sim_time_ms, 0)
-        with self.assertRaisesRegex(SceneError, "does not cover every scene link"):
-            schedule_from_dict(self.reference, self.scene, complete=True)
+        self.assertEqual([link.link_id for link in schedule.snapshots[0].links], ["la1"])
 
     def test_full_coverage_and_directional_values(self) -> None:
         data = deepcopy(self.reference)
@@ -36,7 +35,7 @@ class ChannelScheduleTests(unittest.TestCase):
         data["snapshots"].append(deepcopy(data["snapshots"][0]))
         data["snapshots"][1]["sim_time_ms"] = 1000
         data["snapshots"][1]["links"][0]["b_to_a"]["bandwidth_mbps"] = 50
-        schedule = schedule_from_dict(data, self.scene, complete=True)
+        schedule = schedule_from_dict(data, self.scene)
         self.assertEqual(len(schedule.snapshots), 2)
         self.assertNotEqual(schedule.snapshots[0].digest, schedule.snapshots[1].digest)
 
@@ -44,23 +43,26 @@ class ChannelScheduleTests(unittest.TestCase):
         data = deepcopy(self.reference)
         data["snapshots"].append(deepcopy(data["snapshots"][0]))
         with self.assertRaisesRegex(SceneError, "strictly increasing"):
-            schedule_from_dict(data, self.scene, complete=False)
+            schedule_from_dict(data, self.scene)
 
-    def test_complete_run_rejects_submicrosecond_example(self) -> None:
+    def test_rejects_delay_below_one_nanosecond(self) -> None:
         data = deepcopy(self.reference)
-        template = data["snapshots"][0]["links"][0]
-        data["snapshots"][0]["links"] = [
-            {**deepcopy(template), "link_id": link.id} for link in self.scene.links
-        ]
-        with self.assertRaisesRegex(SceneError, "below one microsecond"):
-            schedule_from_dict(data, self.scene, complete=True)
+        data["snapshots"][0]["links"][0]["a_to_b"]["netem_delay_ms"] = 0.0000001
+        with self.assertRaisesRegex(SceneError, "rounds to zero nanoseconds"):
+            schedule_from_dict(data, self.scene)
+
+    def test_rejects_missing_direction(self) -> None:
+        data = deepcopy(self.reference)
+        del data["snapshots"][0]["links"][0]["b_to_a"]
+        with self.assertRaisesRegex(SceneError, "b_to_a must be an object"):
+            schedule_from_dict(data, self.scene)
 
     def test_wire_digest_detects_changed_values(self) -> None:
-        snapshot = schedule_from_dict(self.reference, self.scene, complete=False).snapshots[0]
+        snapshot = schedule_from_dict(self.reference, self.scene).snapshots[0]
         wire = snapshot.to_dict()
         wire["links"][0]["a_to_b"]["bandwidth_mbps"] = 100
         with self.assertRaisesRegex(SceneError, "digest does not match"):
-            parse_snapshot(wire, self.scene, 0, complete=False)
+            parse_snapshot(wire, self.scene, 0)
 
 
 if __name__ == "__main__":

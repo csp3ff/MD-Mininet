@@ -82,7 +82,7 @@ class CentralController(app_manager.RyuApp):
         self._channel_event_task = hub.spawn(self._channel_event_loop)
         profile_path = os.environ.get("MDNET_CHANNEL_PROFILE")
         if profile_path:
-            schedule = load_channel_schedule(profile_path, self.scene, complete=True)
+            schedule = load_channel_schedule(profile_path, self.scene)
             self.channel_server = ChannelServer(
                 self.scene, schedule, os.environ["MDNET_CHANNEL_HOST"],
                 int(os.environ["MDNET_CHANNEL_PORT"]), self.logger,

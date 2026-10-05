@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
 import json
 from math import isfinite
@@ -15,6 +16,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from channel_mininet.schema import Scene, SceneError, scene_fingerprint
+
+
+def netem_delay_ns(delay_ms: float) -> int:
+    """Quantize a sourced millisecond target to tc's integer nanoseconds."""
+    return int((Decimal(str(delay_ms)) * Decimal(1_000_000)).to_integral_value(
+        rounding=ROUND_HALF_UP
+    ))
 
 
 def _digest(value: Any) -> str:
@@ -111,6 +119,12 @@ def _direction(value: Any, label: str) -> DirectionTarget:
     delay = _number(raw.get("netem_delay_ms"), f"{label}.netem_delay_ms")
     if bandwidth < 0.000001:
         raise SceneError(f"{label}.bandwidth_mbps is below one bit/s")
+    if bandwidth * 1_000_000 > 2**63 - 1:
+        raise SceneError(f"{label}.bandwidth_mbps exceeds supported bit rate")
+    if delay > (2**63 - 1) / 1_000_000:
+        raise SceneError(f"{label}.netem_delay_ms exceeds supported delay")
+    if delay > 0 and netem_delay_ns(delay) == 0:
+        raise SceneError(f"{label}.netem_delay_ms rounds to zero nanoseconds")
     return DirectionTarget(
         bandwidth_mbps=bandwidth,
         netem_delay_ms=delay,
@@ -118,9 +132,7 @@ def _direction(value: Any, label: str) -> DirectionTarget:
     )
 
 
-def parse_snapshot(
-    value: Any, scene: Scene, index: int, *, complete: bool,
-) -> Snapshot:
+def parse_snapshot(value: Any, scene: Scene, index: int) -> Snapshot:
     """Parse a file or wire snapshot.  A wire snapshot includes its digest."""
     label = f"snapshots[{index}]"
     raw = _object(value, label, {"index", "sim_time_ms", "links", "digest"})
@@ -145,17 +157,6 @@ def parse_snapshot(
             link_id, _direction(link.get("a_to_b"), f"{item_label}.a_to_b"),
             _direction(link.get("b_to_a"), f"{item_label}.b_to_a"),
         )
-    if complete and set(links) != set(scene.links_by_id):
-        missing = sorted(set(scene.links_by_id) - set(links))
-        raise SceneError(f"{label} does not cover every scene link: {missing}")
-    if complete:
-        for link in links.values():
-            for target in (link.a_to_b, link.b_to_a):
-                if 0 < target.netem_delay_ms < 0.001:
-                    raise SceneError(
-                        f"snapshot {index} link {link.link_id} has a nonzero "
-                        "netem delay below one microsecond; preview only"
-                    )
     canonical = {"index": index, "sim_time_ms": time_ms,
                  "links": [links[key].to_dict() for key in sorted(links)]}
     digest = _digest(canonical)
@@ -164,7 +165,7 @@ def parse_snapshot(
     return Snapshot(index, time_ms, tuple(links[key] for key in sorted(links)), digest)
 
 
-def schedule_from_dict(value: Any, scene: Scene, *, complete: bool) -> ChannelSchedule:
+def schedule_from_dict(value: Any, scene: Scene) -> ChannelSchedule:
     raw = _object(value, "channel schedule", {"version", "scene_digest", "revision", "snapshots"})
     if type(raw.get("version")) is not int or raw["version"] != 2:
         raise SceneError("channel schedule version must be 2")
@@ -177,7 +178,7 @@ def schedule_from_dict(value: Any, scene: Scene, *, complete: bool) -> ChannelSc
     items = raw.get("snapshots")
     if not isinstance(items, list) or not items:
         raise SceneError("channel schedule snapshots must be a nonempty list")
-    snapshots = tuple(parse_snapshot(item, scene, index, complete=complete)
+    snapshots = tuple(parse_snapshot(item, scene, index)
                       for index, item in enumerate(items))
     if snapshots[0].sim_time_ms != 0:
         raise SceneError("first channel snapshot must start at sim_time_ms=0")
@@ -188,9 +189,9 @@ def schedule_from_dict(value: Any, scene: Scene, *, complete: bool) -> ChannelSc
     return ChannelSchedule(scene_digest, revision, snapshots, _digest(canonical))
 
 
-def load_channel_schedule(path: str | Path, scene: Scene, *, complete: bool) -> ChannelSchedule:
+def load_channel_schedule(path: str | Path, scene: Scene) -> ChannelSchedule:
     try:
         value = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise SceneError(f"cannot load channel schedule {path}: {exc}") from exc
-    return schedule_from_dict(value, scene, complete=complete)
+    return schedule_from_dict(value, scene)

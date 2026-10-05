@@ -113,6 +113,13 @@ def run_basic_network(
             print("Wait for the controller's flow confirmation before testing traffic.")
         else:
             print("Network started in OVS bridge mode.")
+        if channel_port is None:
+            print("Channel emulation is disabled: no --channel was given, and no "
+                  "bandwidth or delay profile has been applied.")
+        else:
+            print(f"Channel emulation is waiting for the central controller at "
+                  f"{controller_host}:{channel_port}; wait for an APPLIED report "
+                  "before measuring traffic.")
         print("Use Mininet CLI commands; type 'exit' to stop it.")
         CLI(network)
     finally:

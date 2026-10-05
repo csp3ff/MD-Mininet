@@ -36,6 +36,7 @@ class ChannelAgent:
         self._pending_at_ns: int | None = None
         self._committed_index: int | None = None
         self._current_index: int | None = None
+        self._last_gate_reason: str | None = None
 
     def start(self) -> None:
         self.shaper.gate()
@@ -62,11 +63,18 @@ class ChannelAgent:
         detected_at_ns = time.time_ns()
         try:
             with self._shaper_lock:
-                self.shaper.gate()
+                changed = self.shaper.gate()
+                if not changed and reason == self._last_gate_reason:
+                    return
+                self._last_gate_reason = reason
             gated_at_ns = time.time_ns()
-            print(f"Channel forwarding stopped: {reason}; detected_at_unix_ns="
-                  f"{detected_at_ns}; gated_at_unix_ns={gated_at_ns}; "
-                  f"shutdown_window_ms={(gated_at_ns - detected_at_ns) / 1e6:.3f}")
+            if changed:
+                print(f"Channel forwarding stopped: {reason}; detected_at_unix_ns="
+                      f"{detected_at_ns}; gated_at_unix_ns={gated_at_ns}; "
+                      f"shutdown_window_ms={(gated_at_ns - detected_at_ns) / 1e6:.3f}")
+            else:
+                print(f"Channel forwarding remains stopped: {reason}; "
+                      f"detected_at_unix_ns={detected_at_ns}")
         except RuntimeError as exc:
             print(f"Channel gate failed: {exc}; detected_at_unix_ns={detected_at_ns}; "
                   f"failure_at_unix_ns={time.time_ns()}")
@@ -151,7 +159,7 @@ class ChannelAgent:
         raw = message.get("snapshot")
         if not isinstance(raw, dict) or type(raw.get("index")) is not int:
             raise ValueError("prepare needs an indexed snapshot")
-        snapshot = parse_snapshot(raw, self.scene, raw["index"], complete=True)
+        snapshot = parse_snapshot(raw, self.scene, raw["index"])
         if self._current_index is not None and snapshot.index < self._current_index:
             raise ValueError("controller sent stale snapshot")
         activate_at = message.get("activate_at_unix_ns")
@@ -211,6 +219,7 @@ class ChannelAgent:
                     if self._wire is not wire or self._stop.is_set():
                         raise RuntimeError("channel connection was lost during apply")
                 applied_times.update(self.shaper.ungate())
+                self._last_gate_reason = None
             applied_at = max(applied_times.values())
             with self._lock:
                 self._current_index = snapshot.index
