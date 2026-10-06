@@ -64,6 +64,10 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--controller-port", type=int, default=6653)
         command.add_argument("--channel-control-port", type=int, default=6654)
         command.add_argument("--seed", type=int, default=0)
+        command.add_argument("--steps", "--snapshots", type=int, default=1,
+                             help="number of channel snapshots (default: 1)")
+        command.add_argument("--step-ms", type=int, default=1000,
+                             help="milliseconds between snapshots (default: 1000)")
         command.add_argument("--recorded-at", help="ISO 8601 timestamp with UTC offset")
     generate.add_argument("--base-channel", help="keep existing version-2 link targets and fill missing links")
     return parser

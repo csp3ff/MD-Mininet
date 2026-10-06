@@ -74,6 +74,10 @@ def generate_scene(args: object) -> None:
         raise SceneError("controller ports must be between 1 and 65535")
     if args.controller_port == args.channel_control_port:
         raise SceneError("controller and channel ports must differ")
+    if args.steps < 1:
+        raise SceneError("--steps must be a positive integer")
+    if args.step_ms < 1:
+        raise SceneError("--step-ms must be a positive integer")
     workers = {}
     for entry in args.worker_ip:
         worker_id, separator, address = entry.partition("=")
@@ -111,28 +115,31 @@ def generate_scene(args: object) -> None:
         f"Synthetic scenario assumption generated with seed {args.seed}; "
         "not a device specification or field measurement."
     )
-    links = []
-    for link in scene.links:
-        if link.id in retained:
-            links.append(retained[link.id])
-            continue
-        directions = {}
-        for direction in ("a_to_b", "b_to_a"):
-            directions[direction] = {
-                "bandwidth_mbps": rng.choice((100, 250, 500, 1000)),
-                "netem_delay_ms": round(rng.uniform(0.5, 5.0), 3),
-                "source": {
-                    "kind": "scenario_assumption",
-                    "reference": reference,
-                    "recorded_at": recorded_at,
-                },
-            }
-        links.append({"link_id": link.id, **directions})
+    snapshots = []
+    for step in range(args.steps):
+        links = []
+        for link in scene.links:
+            if step == 0 and link.id in retained:
+                links.append(retained[link.id])
+                continue
+            directions = {}
+            for direction in ("a_to_b", "b_to_a"):
+                directions[direction] = {
+                    "bandwidth_mbps": rng.choice((100, 250, 500, 1000)),
+                    "netem_delay_ms": round(rng.uniform(0.5, 5.0), 3),
+                    "source": {
+                        "kind": "scenario_assumption",
+                        "reference": reference,
+                        "recorded_at": recorded_at,
+                    },
+                }
+            links.append({"link_id": link.id, **directions})
+        snapshots.append({"sim_time_ms": step * args.step_ms, "links": links})
     channel = {
         "version": 2,
         "scene_digest": scene_fingerprint(scene),
         "revision": 1,
-        "snapshots": [{"sim_time_ms": 0, "links": links}],
+        "snapshots": snapshots,
     }
     schedule_from_dict(channel, scene)
     deployment = {
@@ -156,4 +163,7 @@ def generate_scene(args: object) -> None:
     (output / "channel.json").write_text(
         json.dumps(channel, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    print(f"Generated {output} (scene_digest {scene_fingerprint(scene)})")
+    print(
+        f"Generated {output} ({args.steps} snapshots, {args.step_ms} ms apart; "
+        f"scene_digest {scene_fingerprint(scene)})"
+    )

@@ -1,0 +1,815 @@
+{
+  "version": 2,
+  "scene_digest": "2cfa100a7d7481b3c80c4fb71e19c3c2a82564577b57c6f398c3ceed9c363078",
+  "revision": 1,
+  "snapshots": [
+    {
+      "sim_time_ms": 0,
+      "links": [
+        {
+          "link_id": "la1",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 0.613,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.602,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la2",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 3.814,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.157,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la3",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 0.634,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.547,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la4",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.026,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 1.492,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la5",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 4.142,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.915,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la6",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 3.642,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.75,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la7",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 4.807,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 0.96,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la8",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 0.935,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 3.217,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb1",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.784,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 4.879,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb2",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 0.855,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 4.232,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb3",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 3.098,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 0.706,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb4",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 3.979,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 4.349,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb5",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 2.211,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 3.361,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb6",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.232,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.443,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb7",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 3.658,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.241,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb8",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 2.904,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.235,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la9",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 1.715,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 3.581,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb9",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 1.531,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 4.123,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lx1",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 1.705,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 4.609,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "sim_time_ms": 1000,
+      "links": [
+        {
+          "link_id": "la1",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.457,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 2.28,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la2",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 1.143,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.61,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la3",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 3.862,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 4.54,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la4",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 2.129,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 2.793,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la5",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.901,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 1.188,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la6",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 4.064,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 3.184,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la7",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 2.217,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 2.881,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la8",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.561,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.568,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb1",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 3.959,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.002,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb2",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 1.212,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 4.792,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb3",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 4.873,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 2.785,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb4",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 4.417,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 4.288,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb5",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.188,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 2.927,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb6",
+          "a_to_b": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 3.195,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 0.588,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb7",
+          "a_to_b": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 4.454,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 500,
+            "netem_delay_ms": 1.578,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb8",
+          "a_to_b": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 4.451,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 100,
+            "netem_delay_ms": 0.885,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "la9",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 4.172,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.078,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lb9",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 4.761,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 1.693,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        },
+        {
+          "link_id": "lx1",
+          "a_to_b": {
+            "bandwidth_mbps": 1000,
+            "netem_delay_ms": 4.84,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          },
+          "b_to_a": {
+            "bandwidth_mbps": 250,
+            "netem_delay_ms": 3.708,
+            "source": {
+              "kind": "scenario_assumption",
+              "reference": "Synthetic scenario assumption generated with seed 42; not a device specification or field measurement.",
+              "recorded_at": "2026-10-06T15:27:23+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

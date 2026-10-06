@@ -10,6 +10,8 @@
 
 [`configs/channel_profile.reference.json`](../configs/channel_profile.reference.json) 与 [`configs/scenes/two_workers/channel.json`](../configs/scenes/two_workers/channel.json) 均覆盖 19 条链路，`la1` 保留原有设定，其余 18 条由种子 42 随机生成；中央控制器可直接加载场景目录。所有目标值目前都是场景假设。正式研究应由 MATLAB 或采集流程提供有来源的结果，替换这些假设。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
 
+生成器默认只写一个 0 ms 时间片。`generate-scene` 和 `generate-random-scene` 均可加 `--steps N --step-ms T`，在 `0, T, 2T, ...` ms 生成 N 个完整时间片；例如 `--steps 10 --step-ms 1000` 对应 0 至 9000 ms 的 10 片。相邻片的链路目标独立随机生成，拓扑和部署配置在整个序列中保持不变。时间片耗尽后，最后一片持续生效，直到实验停止。
+
 例如，`sudo ./start.sh --worker a --deployment configs/deployment.yml` 未指定 `--channel`，只创建普通 Mininet 链路，完全不读取参考文件，也不会设置 HTB/netem。启用信道后，`la1` 样例的 4.765 ms 换算为 `4765us`，分别配置在两个发送方向；经过该链路的往返报文目标附加时延合计为 9.53 ms，实际效果仍受内核定时与排队影响。验收应先确认中央控制器已加载文件且每个 Worker 报告 `APPLIED`，再检查对应发送接口的 `tc qdisc/class` 配置并测量实际时延。
 
 `netem_delay_ms` 在下发时按四舍五入换算为整数微秒，使用 `us` 单位，以兼容 Worker 上的旧版 `tc`；非零值若量化为 0 µs 则拒绝，避免悄悄取消目标时延。旧版 `tc` 不能准确实现亚微秒目标，内核定时和排队也会影响实际效果。[旧版 iproute2 netem 源码](https://raw.githubusercontent.com/iproute2/iproute2/v5.15.0/tc/q_netem.c)、[时间解析源码](https://raw.githubusercontent.com/iproute2/iproute2/v5.15.0/lib/utils.c)

@@ -30,12 +30,12 @@ sudo ./start.sh --scene configs/scenes/two_workers --worker b
 ./.venv/bin/md-mininet plan configs/scenes/two_workers --worker b
 ```
 
-基于已有拓扑生成另一套目录时，下面的命令用种子 42 为全部链路随机生成**场景假设**。如果有仅配置部分链路的版本 2 文件，可加 `--base-channel 文件路径`，保留其中的配置并随机补齐缺失链路。输出目录必须尚不存在；生成器不启动 Mininet。`--seed` 固定数值，若还需字节级复现，显式指定 `--recorded-at 2026-10-06T00:00:00+00:00`。生成结果不是实测性能参数，正式实验应替换并注明真实来源。
+基于已有拓扑生成另一套目录时，下面的命令用种子 42 为全部链路随机生成**场景假设**。默认只生成 `sim_time_ms=0` 的一个时间片；`--steps 10 --step-ms 1000` 会生成 10 片，时间分别为 0、1000、…、9000 ms，每片均包含全部链路的双向目标。如果有仅配置部分链路的版本 2 文件，可加 `--base-channel 文件路径`，保留其中的**首片**配置并随机补齐缺失链路；后续时间片全部重新随机生成。输出目录必须尚不存在；生成器不启动 Mininet。`--seed` 固定数值，若还需字节级复现，显式指定 `--recorded-at 2026-10-06T00:00:00+00:00`。生成结果不是实测性能参数，正式实验应替换并注明真实来源。
 
 ```bash
 ./.venv/bin/md-mininet generate-scene configs/two_workers.json configs/scenes/my_scene \
   --worker-ip a=192.168.145.131 --worker-ip b=192.168.145.132 \
-  --controller-host 192.168.145.132 --seed 42
+  --controller-host 192.168.145.132 --seed 42 --steps 10 --step-ms 1000
 ```
 
 也可同时随机创建拓扑与全部链路目标。下面的命令生成每个 Worker 8 台主机、2 台交换机；交换机组成一条连通链，主机随机接入本 Worker 的交换机。主机地址从 `10.77.0.0/24` 依次分配，随机种子决定接入交换机及每条链路的双向目标；仍需填入真实物理机地址。
@@ -43,7 +43,7 @@ sudo ./start.sh --scene configs/scenes/two_workers --worker b
 ```bash
 ./.venv/bin/md-mininet generate-random-scene configs/scenes/random_two_workers \
   --worker-ip a=192.168.145.131 --worker-ip b=192.168.145.132 \
-  --controller-host 192.168.145.132 --seed 42
+  --controller-host 192.168.145.132 --seed 42 --steps 10 --step-ms 1000
 ```
 
 ## 开发进度与下一阶段
