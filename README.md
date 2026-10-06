@@ -172,7 +172,7 @@ sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
 ./.venv/bin/md-mininet plan configs/two_workers.json --worker b --deployment configs/deployment.yml
 ```
 
-`plan` 中的 `vxlan_tunnels` 显示每条边界链路在本机的交换机、接口、远端地址与 VNI。增加 Worker 时，将新 ID、节点、链路加入场景，并在部署文件 `workers` 中加入对应物理地址；每条跨 Worker 交换机链路都会得到两个端点，双方使用相同 VNI。部署代码会在场景内检测 VNI 冲突。各物理机之间需要可路由的 IPv4 底层网络，并允许双向 UDP 4789；所有交换机还需要能连接中央控制器的 TCP 6653（或配置中的端口）；时间片模式另外需要 TCP 6654。VXLAN 封装增加报文长度，底层 MTU 应留出封装余量。普通受控模式不进行时间片启动屏障；时间片模式在中央控制器中等待所有 Worker 就绪，但不自动同步物理机时钟。
+`plan` 中的 `vxlan_tunnels` 显示每条边界链路在本机的交换机、接口、远端地址与 VNI。增加 Worker 时，将新 ID、节点、链路加入场景，并在部署文件 `workers` 中加入对应物理地址；每条跨 Worker 交换机链路都会得到两个端点，双方使用相同 VNI。部署代码会在场景内检测 VNI 冲突。各物理机之间需要可路由的 IPv4 底层网络，并允许双向 UDP 4789；所有交换机还需要能连接中央控制器的 TCP 6653（或配置中的端口）；时间片模式另外需要 TCP 6654。VXLAN 封装增加报文长度，底层 MTU 应留出封装余量。普通受控模式不进行时间片启动屏障；时间片模式在中央控制器中等待所有 Worker 就绪，但不自动同步物理机时钟。 
 
 在控制器机器上监听 Worker 可达的地址（不能使用仅本机可达的 `127.0.0.1`）；`--listen-host`、`--listen-port` 须与部署配置中的 `controller` 一致：
 
