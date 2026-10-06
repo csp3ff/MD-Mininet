@@ -40,7 +40,8 @@ FIELDS = (
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--links", type=int, default=100, help="total links (default: 100)")
+    result.add_argument("--links", type=int, help="total links; default 100 unless --hosts is given")
+    result.add_argument("--hosts", type=int, help="number of hosts; each has one link")
     result.add_argument("--switches", type=int, default=10, help="switches in a chain (default: 10)")
     result.add_argument("--step-links", type=int, default=10, help="link count increment (default: 10)")
     result.add_argument("--repeats", type=int, default=5, help="measured rounds per count (default: 5)")
@@ -49,8 +50,7 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def make_scene(link_count: int, switch_count: int, rng: random.Random, token: str) -> Scene:
-    host_count = link_count - switch_count + 1
+def make_scene(host_count: int, switch_count: int, rng: random.Random, token: str) -> Scene:
     subnet = ip_network("10.199.0.0/16")
     if host_count < 1 or host_count > subnet.num_addresses - 2:
         raise ValueError("need at least one host and enough 10.199.0.0/16 addresses")
@@ -344,10 +344,23 @@ def write_report(path: Path, summary: list[dict], commands: list[dict], args,
 
 def main() -> int:
     args = parser().parse_args()
+    if args.switches < 1 or args.step_links < 1:
+        raise SystemExit("Require --switches >= 1 and --step-links >= 1.")
+    if args.hosts is None:
+        args.links = 100 if args.links is None else args.links
+        args.hosts = args.links - args.switches + 1
+    else:
+        expected_links = args.hosts + args.switches - 1
+        if args.links is not None and args.links != expected_links:
+            raise SystemExit(
+                f"A connected tree with {args.hosts} hosts and {args.switches} switches "
+                f"has {expected_links} links; --links={args.links} conflicts with that."
+            )
+        args.links = expected_links
+    if args.hosts < 1:
+        raise SystemExit("Require at least one host; increase --links or reduce --switches.")
     if os.geteuid() != 0:
         raise SystemExit("This benchmark creates Mininet namespaces; run with sudo.")
-    if args.links < 10 or args.switches < 1 or args.switches > args.links or args.step_links < 1:
-        raise SystemExit("Require --links >= 10 and 1 <= --switches <= --links, --step-links >= 1.")
     if args.repeats < 1 or args.warmups < 0:
         raise SystemExit("Require --repeats >= 1 and --warmups >= 0.")
     for executable in ("tc", "ip", "ovs-vsctl"):
@@ -361,7 +374,7 @@ def main() -> int:
     run_name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + token
     output = Path(__file__).resolve().parent / "results" / run_name
     output.mkdir(parents=True, exist_ok=False)
-    scene = make_scene(args.links, args.switches, rng, token)
+    scene = make_scene(args.hosts, args.switches, rng, token)
     _check_bridge_names(scene, None)
     all_ids = [link.id for link in scene.links]
     counts = list(range(args.step_links, args.links + 1, args.step_links))
