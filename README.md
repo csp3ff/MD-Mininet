@@ -2,11 +2,11 @@
 
 MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完整拓扑和多台物理机分区运行。每台 Worker 电脑安装**同一份源码**、读取**同一份场景配置**，再用不同的 Worker ID 选择本机负责的节点和链路。当前示例有 A、B 两个分区，每个分区包含 8 台模拟主机和 2 台模拟交换机。
 
-> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。中央控制器发布链路时间片的源码已加入，但尚未运行部署或代码测试；完整数据和现场验收仍待完成。详见 [链路时间片说明](CHANNEL_TIMELINE.md)与 [研究计划](RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
+> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。中央控制器发布链路时间片的源码已加入，参考文件只配置 `la1`，其他链路保持默认；时间片数据面仍待现场验收。详见 [链路时间片说明](docs/CHANNEL_TIMELINE.md)与 [研究计划](docs/RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
 
 ## 开发进度与下一阶段
 
-`[x]` 表示源码或文档已实现；运行结论另行注明，避免把“代码已写入”与“实验已验收”混为一谈。研究顺序与验收标准见 [RESEARCH_PLAN.md](RESEARCH_PLAN.md)。
+`[x]` 表示源码或文档已实现；运行结论另行注明，避免把“代码已写入”与“实验已验收”混为一谈。研究顺序与验收标准见 [RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md)。
 
 - [x] 建立 Python 包、命令入口和双 Worker 示例场景；实现校验、全局标识、`scene_digest`、Worker 划分与静态路径规划。
 - [x] 实现标准 Mininet Host/OVS 的前台启动，以及跨机器 VXLAN 端口的规划、创建和正常退出回收。
@@ -26,10 +26,10 @@ MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完�
 
 ### 方式 A：通过 Git
 
-先在开发电脑上将 `README.md`、`pyproject.toml`、`src/`、`configs/` 和 `.gitignore` 提交并推送。本仓库当前的远端名和分支名都叫 `master`，远端地址是 `https://github.com/csp3ff/MD-Mininet.git`：
+先在开发电脑上将 `README.md`、`docs/`、`pyproject.toml`、`src/`、`configs/` 和 `.gitignore` 提交并推送。本仓库当前的远端名和分支名都叫 `master`，远端地址是 `https://github.com/csp3ff/MD-Mininet.git`：
 
 ```bash
-git add .gitignore README.md pyproject.toml start.sh src configs
+git add .gitignore README.md docs pyproject.toml start.sh src configs
 git commit -m "Add basic Mininet runner"
 git push -u master master
 ```
@@ -92,13 +92,13 @@ Worker A 和 Worker B 分别查看自己的规划：
 
 ### 信道规划：版本 1 物理输入与版本 2 时间片
 
-源码提供只读的 `md-mininet channel-plan 场景文件 信道配置文件`。以下三条描述保留的 **版本 1 物理输入**；新参考文件已经升级为版本 2，格式与运行方式见 [链路时间片说明](CHANNEL_TIMELINE.md)。版本 1 顶层包含 `version=1`、`scene_digest`、正整数 `revision`、带时区的 `effective_time`、`ports` 和 `links`。
+源码提供只读的 `md-mininet channel-plan 场景文件 信道配置文件`。以下三条描述保留的 **版本 1 物理输入**；新参考文件已经升级为版本 2，格式与运行方式见 [链路时间片说明](docs/CHANNEL_TIMELINE.md)。版本 1 顶层包含 `version=1`、`scene_digest`、正整数 `revision`、带时区的 `effective_time`、`ports` 和 `links`。
 
 - `ports` 中每项对应一条逻辑链路的一个端点，包含 `link_id`、`node_id`、`port_type`、正数 `rate_mbps` 和 `source`。`source` 必须给出 `kind`（`device_readout`、`field_measurement` 或 `datasheet`）、`reference`、真实 `device_model`、带时区的 `recorded_at`。这些字段描述拟模拟的真实设备，不能从 Mininet 的 veth/OVS 虚拟端口读取后冒充设备规格。
 - `links` 中每项包含 `link_id`、`model="generic"`、`a_to_b` 和 `b_to_a`。每个方向都要给出 `available`、正数 `nominal_bandwidth_mbps`、非负 `distance_m`（实际传播路径长度，米）、大于零且不超过真空光速的 `propagation_speed_mps`（该介质中的传播速度，米/秒）和 `source`；`source` 含 `kind`（`measurement`、`datasheet` 或 `scenario_assumption`）、`reference`、带时区的 `recorded_at`，用于区分测量值与场景设定。名义容量不得超过两个端点中较低的有来源端口速率，配置错误会直接报出，不再靠输出时取最小值掩盖。可选 `max_distance_m` 是该方向明确给出的正数场景上界，提供后 `distance_m` 不得超过它；这不是所有介质通用的物理极限。可选 `velocity_factor_of_c` 须在 0 到 1 之间，提供后必须与 `propagation_speed_mps / 299792458` 一致。输出的 `delay_ms = 1000 × distance_m / propagation_speed_mps` **仅为单向传播时延**，不含发送/序列化、交换处理、排队或重传时延。可选 `jitter_ms`、`loss_pct`；未提供时输出 `null`，不自动猜测。仅有端口速率、带宽、频率或发射功率，无法推出传播时延；缺少长度或传播速度时配置报错。
 - 可以只配置部分链路以做小规模研究；已配置链路必须包含两个端点的来源数据及两个方向。输出列出 `modeled_links`、`unmodeled_links` 和每个方向的 `ChannelState`，便于识别覆盖缺口。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路保持普通 Mininet 默认配置。该文件现在可以由中央控制器加载。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；0.0004765 ms 来自假设 100 m 电缆的传播估计，在此样例中直接作为 netem **附加**时延，下发时按四舍五入量化为 477 ns。它不是 Mininet 报文总时延，也不能据此声称精确复现亚微秒传播。
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路保持普通 Mininet 默认配置。该文件现在可以由中央控制器加载。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；当前 JSON 的 `netem_delay_ms: 4.765` 是示例场景设定的 **附加**时延，Worker 将它换算为 `4765us` 下发给 `tc`，不是 100 m 电缆的传播测量值，也不是 Mininet 报文总时延。正数时延按微秒四舍五入；小于 0.5 µs、会量化为 0 µs 的配置直接拒绝。
 
 在项目根目录运行只读规划：
 
@@ -106,7 +106,7 @@ Worker A 和 Worker B 分别查看自己的规划：
 PYTHONPATH=src python3 -m channel_mininet.cli channel-plan configs/two_workers.json configs/channel_profile.reference.json
 ```
 
-`channel-plan` 对版本 2 显示每片的已配置链路、保持默认的链路、双向参数及发送出口；它不创建或配置网络。来源字段由程序校验，来源内容仍需人工核对。版本 2 文件由中央控制器加载并直接向 Worker 发布；具体启动方式和同步语义见 [链路时间片说明](CHANNEL_TIMELINE.md)。
+`channel-plan` 对版本 2 显示每片的已配置链路、保持默认的链路、双向参数及发送出口；它不创建或配置网络。来源字段由程序校验，来源内容仍需人工核对。版本 2 文件由中央控制器加载并直接向 Worker 发布；具体启动方式和同步语义见 [链路时间片说明](docs/CHANNEL_TIMELINE.md)。
 
 ## 4. 启动单机基础网络
 
@@ -164,7 +164,7 @@ sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
 
 多机模式下，`two_workers.json` 和 `deployment.yml` **同时存在，不合并内容**：前者描述仿真节点与逻辑链路，后者描述物理机和控制器地址。每个 Worker 使用相同的源码、场景和部署配置，只改变 `--worker` 参数。Worker 数量从场景读取，没有写死为两台。[`configs/deployment.example.yml`](configs/deployment.example.yml) 是带注释的模板；其中 `192.0.2.x` 和摘要占位符必须换成实际值。`workers` 必须与场景中的 Worker ID 完全一致，地址必须互不重复，且本机的 Worker 地址必须实际配置在本机网卡上。已有 `.json` 部署文件仍可读取。
 
-先在所有机器准备相同的 `configs/two_workers.json`，运行只读校验取得 `scene_digest`，再把该摘要填入 `configs/deployment.yml`，并将这份 YAML 文件复制到所有 Worker。仓库中的 `deployment.yml` 已保留原 `deployment.json` 的地址值，但摘要仍是占位符。摘要只由场景文件计算；修改部署文件里的物理 IP 不会改变它：
+先在所有机器准备相同的 `configs/two_workers.json`，运行只读校验取得 `scene_digest`，核对并在场景变更后更新 `configs/deployment.yml`，再将这份 YAML 文件复制到所有 Worker。仓库中示例部署文件当前填的是 `a=192.168.145.131`、`b=192.168.145.132`、中央控制器 `192.168.145.132`，只适用于实际地址与之相符的机器；摘要只由场景文件计算，修改物理 IP 不会改变它：
 
 ```bash
 ./.venv/bin/md-mininet validate configs/two_workers.json
@@ -172,7 +172,7 @@ sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
 ./.venv/bin/md-mininet plan configs/two_workers.json --worker b --deployment configs/deployment.yml
 ```
 
-`plan` 中的 `vxlan_tunnels` 显示每条边界链路在本机的交换机、接口、远端地址与 VNI。增加 Worker 时，将新 ID、节点、链路加入场景，并在部署文件 `workers` 中加入对应物理地址；每条跨 Worker 交换机链路都会得到两个端点，双方使用相同 VNI。部署代码会在场景内检测 VNI 冲突。各物理机之间需要可路由的 IPv4 底层网络，并允许双向 UDP 4789；所有交换机还需要能连接中央控制器的 TCP 6653（或配置中的端口）。VXLAN 封装增加报文长度，底层 MTU 应留出封装余量。当前没有自动进行时钟同步、跨机器启动屏障或控制器健康检查。
+`plan` 中的 `vxlan_tunnels` 显示每条边界链路在本机的交换机、接口、远端地址与 VNI。增加 Worker 时，将新 ID、节点、链路加入场景，并在部署文件 `workers` 中加入对应物理地址；每条跨 Worker 交换机链路都会得到两个端点，双方使用相同 VNI。部署代码会在场景内检测 VNI 冲突。各物理机之间需要可路由的 IPv4 底层网络，并允许双向 UDP 4789；所有交换机还需要能连接中央控制器的 TCP 6653（或配置中的端口）；时间片模式另外需要 TCP 6654。VXLAN 封装增加报文长度，底层 MTU 应留出封装余量。普通受控模式不进行时间片启动屏障；时间片模式在中央控制器中等待所有 Worker 就绪，但不自动同步物理机时钟。
 
 在控制器机器上监听 Worker 可达的地址（不能使用仅本机可达的 `127.0.0.1`）；`--listen-host`、`--listen-port` 须与部署配置中的 `controller` 一致：
 
@@ -191,6 +191,59 @@ sudo ./start.sh --scene configs/two_workers.json --worker b --deployment configs
 ```
 
 每个进程先创建本地 Mininet 节点和内部链路，再为本机边界交换机添加 OVS VXLAN 端口。端口名与场景中的逻辑链路对应，由中央控制器核对实际 OpenFlow 端口号并安装路径。所有相关交换机都收到控制器的 `Flow update confirmed` 日志后，才能据此判断规则已经安装；这条日志本身不证明跨机数据面可达。正常退出各自的 Mininet CLI 或向主进程发送 `SIGTERM` 时，本进程删除自己创建的 VXLAN 端口并停止本地网络。异常断电或 `SIGKILL` 后的自动残留清理尚未实现；不要把下文单机全部 Worker 的清理命令直接用于多机模式。
+
+### 多机时间片模式：中央控制器与各 Worker 完整启动顺序
+
+控制器和所有 Worker 必须使用**同一版本源码**、相同的 `two_workers.json` 与 `deployment.yml`。更新源码后，若 `.venv` 中安装的不是可编辑版本，应按安装章节在每台机器重新安装项目，使 `md-controller` 和 `start.sh` 加载新代码；同时同步控制器读取的时间片 JSON。控制器单独读取版本 2 时间片文件，Worker 不读取它。示例参考文件只配置 `la1` 双向带宽和 4.765 ms 附加时延，其余链路保持 Mininet 默认参数；它可以用于检查发布流程，实际时延仍须现场测量。`deployment.yml` 的 `controller.host`、`port`、`channel_port` 必须与控制器实际监听的地址和端口一致。下例假设控制器和 Worker b 均在 `192.168.145.132`，Worker a 在 `192.168.145.131`；如果物理地址不同，先改部署文件与以下命令。`CONTROLLER_IP` 是说明文字，不能原样输入命令。
+
+1. 在 **192.168.145.132 的终端 1** 启动中央控制器。它同时监听 OpenFlow 的 6653 和信道控制的 6654；不需要 `sudo`。等待日志出现 `Channel run ... listening`，再启动 Worker。
+
+   ```bash
+   cd ~/MDNET
+   ./.venv/bin/md-controller configs/two_workers.json \
+     --listen-host 192.168.145.132 --listen-port 6653 \
+     --channel-profile configs/channel_profile.reference.json \
+     --channel-control-host 192.168.145.132 --channel-control-port 6654
+   ```
+
+2. 在 **192.168.145.131 的终端** 启动 Worker a：
+
+   ```bash
+   cd ~/MDNET
+   sudo ./start.sh --scene configs/two_workers.json \
+     --worker a --deployment configs/deployment.yml --channel
+   ```
+
+3. 在 **192.168.145.132 的终端 2** 启动 Worker b：
+
+   ```bash
+   cd ~/MDNET
+   sudo ./start.sh --scene configs/two_workers.json \
+     --worker b --deployment configs/deployment.yml --channel
+   ```
+
+Worker a、b 可以互换启动顺序，但必须都连接且返回 `READY`，中央控制器才会发送首次 `COMMIT`。Mininet 显示 `Starting CLI` 只表示本地网络已创建；测量前等待 Worker 输出 `Channel snapshot 0 APPLIED`、控制器输出 `Channel snapshot 0 applied`，并确认相关交换机的 `Flow update confirmed`。中央控制器若只用上一节**不带** `--channel-profile` 的命令启动，就不会监听 6654；Worker 会报告 `Connection refused` 并保持实验接口关闭。Eventlet 的弃用警告本身不是失败；出现 `socket.gaierror` 或控制器 traceback 时，控制器已经退出，须先修正控制器命令。控制器正常运行期间须保持终端 1 的进程存在。
+
+若在同一台机器上运行全部 Worker，则不用 `--deployment`。在终端 1 启动控制器：
+
+```bash
+cd ~/MDNET
+./.venv/bin/md-controller configs/two_workers.json \
+  --listen-host 127.0.0.1 --listen-port 6653 \
+  --channel-profile configs/channel_profile.reference.json \
+  --channel-control-host 127.0.0.1 --channel-control-port 6654
+```
+
+等待 `Channel run ... listening` 后，在终端 2 启动全部 Worker：
+
+```bash
+cd ~/MDNET
+sudo ./start.sh --scene configs/two_workers.json --all-workers \
+  --controller-host 127.0.0.1 --controller-port 6653 \
+  --channel --channel-control-port 6654
+```
+
+更多时间片格式、失联处理与测量口径见[链路时间片说明](docs/CHANNEL_TIMELINE.md)。
 
 ### 异常退出后的定向清理
 
@@ -268,6 +321,6 @@ sudo ip -o link show | grep -E 'm5055743b946da9|m3db8518d37b5c7'
 
 ## 6. 完整网络部署还需要什么
 
-通用模型的静态只读计算源码与单链路参考配置已完成规划验证；下一步需要采集目标设备数据，并区分稳定设备能力、初始节点状态和有来源的演化规则。仿真时钟驱动节点与共享环境变化，再计算和下发本地及跨 Worker 链路的单向状态序列，随后分别实现无线、有线物理模型。节点参数必须对应真实设备，能从只读设备信息、现场测量或公开规格表取得，并保留来源；缺少依据的处理时延等量不作为节点必填项。详细输入、输出、技术风险和验收顺序见 [研究计划](RESEARCH_PLAN.md)。当前分布式网络使用普通 Mininet Host、OVS、VXLAN 和集中式 Ryu 控制器，无需每节点 Docker。若以后确有容器化需求，再验证 Docker Engine、Mininet/Containernet、容器内 OVS 和所需权限，先决定只容器化主机还是同时隔离交换机进程。多机器的物理地址和控制器连接仍由部署配置指定。安装资料可参考 [Docker Engine 官方文档](https://docs.docker.com/engine/install/)与 [Mininet 安装说明](https://github.com/mininet/mininet/blob/master/INSTALL)。
+通用模型的静态只读计算源码与单链路参考配置已完成规划验证；下一步需要采集目标设备数据，并区分稳定设备能力、初始节点状态和有来源的演化规则。仿真时钟驱动节点与共享环境变化，再计算和下发本地及跨 Worker 链路的单向状态序列，随后分别实现无线、有线物理模型。节点参数必须对应真实设备，能从只读设备信息、现场测量或公开规格表取得，并保留来源；缺少依据的处理时延等量不作为节点必填项。详细输入、输出、技术风险和验收顺序见 [研究计划](docs/RESEARCH_PLAN.md)。当前分布式网络使用普通 Mininet Host、OVS、VXLAN 和集中式 Ryu 控制器，无需每节点 Docker。若以后确有容器化需求，再验证 Docker Engine、Mininet/Containernet、容器内 OVS 和所需权限，先决定只容器化主机还是同时隔离交换机进程。多机器的物理地址和控制器连接仍由部署配置指定。安装资料可参考 [Docker Engine 官方文档](https://docs.docker.com/engine/install/)与 [Mininet 安装说明](https://github.com/mininet/mininet/blob/master/INSTALL)。
 
 本项目当前的工作约定是不运行部署逻辑，也不运行代码测试；本 README 的 Mininet 和控制器启动命令均未在本次修改中执行。

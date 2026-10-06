@@ -229,6 +229,8 @@ class ChannelAgent:
             wire.send({"type": "applied", "run_id": self._run_id, "index": snapshot.index,
                        "ok": True, "applied_at_unix_ns": applied_at,
                        "applied_at_by_worker_ns": applied_times})
+            print(f"Channel snapshot {snapshot.index} APPLIED for workers "
+                  f"{', '.join(self.worker_ids)} at_unix_ns={applied_at}")
         except Exception as exc:
             self._gate(f"snapshot {snapshot.index} apply failed: {exc}")
             try:

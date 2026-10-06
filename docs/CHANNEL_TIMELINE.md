@@ -6,13 +6,13 @@
 
 中央控制器读取版本 2 的 JSON 时间片文件。顶层有 `version: 2`、与场景匹配的 `scene_digest`、正整数 `revision` 和 `snapshots`。每片含严格递增的整数 `sim_time_ms`，首片必须为 0。每片的 `links` 只列出需要配置的链路；未列出的链路保持普通 Mininet 默认配置。列出的每条链路都必须同时提供 `a_to_b`、`b_to_a`，分别有正数 `bandwidth_mbps`、非负 `netem_delay_ms`，以及 `source: {kind, reference, recorded_at}`；`kind` 为 `measurement`、`simulation` 或 `scenario_assumption`。`recorded_at` 是带时区的 ISO 8601 时间。相邻时间片之间沿用上一片状态；下一个时间片若省略先前配置的链路，Worker 会删除自己为它安装的整形规则，让它恢复默认。所有实验接口在首次 `APPLIED` 前仍按统一调度要求暂时关闭，控制器失联时也会关闭以避免继续使用过期时间片。
 
-`bandwidth_mbps` 是发送出口的目标整形速率，不是物理端口标称速率或业务实测吞吐。`netem_delay_ms` 是直接加在出口的 **附加时延**，不是链路报文总单向时延，也不同于旧版 `ChannelState.delay_ms` 所表示的物理传播时延。样例中的 0.0004765 ms 来自假设的 100 m 电缆传播估计，作为 netem 附加值展示格式；普通 Mininet 中不能据此声称精确重现亚微秒传播时间。
+`bandwidth_mbps` 是发送出口的目标整形速率，不是物理端口标称速率或业务实测吞吐。`netem_delay_ms` 是直接加在出口的 **附加时延**，不是链路报文总单向时延，也不同于旧版 `ChannelState.delay_ms` 所表示的物理传播时延。当前样例中的 4.765 ms 是场景假设，不是 100 m 电缆传播估计或实测链路时延。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 只配置 `la1`，其余 18 条链路保持默认；中央控制器现在可以直接加载这个参考文件。正式研究如需这些链路的目标带宽和时延，应由 MATLAB 或采集流程提供有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
+[`configs/channel_profile.reference.json`](../configs/channel_profile.reference.json) 只配置 `la1`，其余 18 条链路保持默认；中央控制器现在可以直接加载这个参考文件。正式研究如需这些链路的目标带宽和时延，应由 MATLAB 或采集流程提供有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
 
-例如，`sudo ./start.sh --worker a --deployment configs/deployment.yml` 未指定 `--channel`，只创建普通 Mininet 链路，完全不读取参考文件，也不会设置 HTB/netem。启用信道后，`la1` 样例的 0.0004765 ms 下发时按四舍五入量化为 477 ns；往返经过该链路两次约增加 0.954 µs，不能凭普通 `ping` 的毫秒级输出稳定分辨。验收应先确认中央控制器已加载文件且每个 Worker 报告 `APPLIED`，再检查对应发送接口的 `tc qdisc/class` 配置，并使用有足够分辨率的测量方法。
+例如，`sudo ./start.sh --worker a --deployment configs/deployment.yml` 未指定 `--channel`，只创建普通 Mininet 链路，完全不读取参考文件，也不会设置 HTB/netem。启用信道后，`la1` 样例的 4.765 ms 换算为 `4765us`，分别配置在两个发送方向；经过该链路的往返报文目标附加时延合计为 9.53 ms，实际效果仍受内核定时与排队影响。验收应先确认中央控制器已加载文件且每个 Worker 报告 `APPLIED`，再检查对应发送接口的 `tc qdisc/class` 配置并测量实际时延。
 
-`netem_delay_ms` 在下发时换算为整数纳秒；非零值若量化为 0 ns 则拒绝。`iproute2` 的 netem 使用纳秒的 64 位延迟参数并接受 `ns` 单位，但内核定时和排队会限制实际效果，亚微秒目标须现场测量。[iproute2 netem 源码](https://github.com/iproute2/iproute2/blob/main/tc/q_netem.c)、[时间解析源码](https://kernel.googlesource.com/pub/scm/network/iproute2/iproute2-next/+/c99a85a7c8eb5cafbe0f4f681b108a58617c983b/lib/utils.c)
+`netem_delay_ms` 在下发时按四舍五入换算为整数微秒，使用 `us` 单位，以兼容 Worker 上的旧版 `tc`；非零值若量化为 0 µs 则拒绝，避免悄悄取消目标时延。旧版 `tc` 不能准确实现亚微秒目标，内核定时和排队也会影响实际效果。[旧版 iproute2 netem 源码](https://raw.githubusercontent.com/iproute2/iproute2/v5.15.0/tc/q_netem.c)、[时间解析源码](https://raw.githubusercontent.com/iproute2/iproute2/v5.15.0/lib/utils.c)
 
 ## 启动接口
 

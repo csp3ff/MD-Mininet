@@ -13,7 +13,7 @@
             "netem_delay_ms": 4.765,
             "source": {
               "kind": "scenario_assumption",
-              "reference": "Scenario assumption: a 100 m 1000BASE-T path. Intel I210-AT port: https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html ; NETGEAR GS108v3 port: https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf ; Belden 2412 nominal propagation velocity 0.7c: https://catalog.belden.com/techdata/EN/2412_techdata.pdf . The 0.0004765 ms estimate is used directly as additional netem delay, not calibrated total packet delay. This example covers la1 only.",
+              "reference": "Scenario assumption for la1 only: 1000 Mb/s egress target and 4.765 ms additional netem delay, not measured total packet delay. Reference port specifications: Intel I210-AT https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html ; NETGEAR GS108v3 https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf . The delay is an illustrative scenario value, not a 100 m cable propagation estimate.",
               "recorded_at": "2026-10-03T18:28:00+00:00"
             }
           },
@@ -22,7 +22,7 @@
             "netem_delay_ms": 4.765,
             "source": {
               "kind": "scenario_assumption",
-              "reference": "Scenario assumption: a 100 m 1000BASE-T path. Intel I210-AT port: https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html ; NETGEAR GS108v3 port: https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf ; Belden 2412 nominal propagation velocity 0.7c: https://catalog.belden.com/techdata/EN/2412_techdata.pdf . The 0.0004765 ms estimate is used directly as additional netem delay, not calibrated total packet delay. This example covers la1 only.",
+              "reference": "Scenario assumption for la1 only: 1000 Mb/s egress target and 4.765 ms additional netem delay, not measured total packet delay. Reference port specifications: Intel I210-AT https://www.intel.com/content/www/us/en/products/sku/64400/intel-ethernet-controller-i210at/specifications.html ; NETGEAR GS108v3 https://www.downloads.netgear.com/files/GDC/datasheet/en/GS105v3-GS108v3.pdf . The delay is an illustrative scenario value, not a 100 m cable propagation estimate.",
               "recorded_at": "2026-10-03T18:28:00+00:00"
             }
           }

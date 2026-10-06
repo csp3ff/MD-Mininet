@@ -7,7 +7,7 @@ from subprocess import PIPE, STDOUT
 import time
 from typing import Any
 
-from channel_mininet.channel_schedule import Snapshot, netem_delay_ns
+from channel_mininet.channel_schedule import Snapshot, netem_delay_us
 from channel_mininet.runtime.names import interface_name
 from channel_mininet.schema import Scene
 
@@ -91,8 +91,8 @@ class ChannelShaper:
                 continue
             target = getattr(link, egress.direction)
             rate = round(target.bandwidth_mbps * 1_000_000)
-            delay_ns = netem_delay_ns(target.netem_delay_ms)
-            if rate < 1 or (target.netem_delay_ms > 0 and delay_ns == 0):
+            delay_us = netem_delay_us(target.netem_delay_ms)
+            if rate < 1 or (target.netem_delay_ms > 0 and delay_us == 0):
                 raise RuntimeError(f"{egress.link_id} {egress.direction} is below tc precision")
             dev = ["dev", egress.interface]
             configured = egress.interface in self._configured
@@ -105,7 +105,7 @@ class ChannelShaper:
                                    "rate", f"{rate}bit", "ceil", f"{rate}bit"])
                 self._run(egress, ["tc", "qdisc", "change" if configured else "add", *dev,
                                    "parent", "1:1", "handle", "10:", "netem", "delay",
-                                   f"{delay_ns}ns"])
+                                   f"{delay_us}us"])
             except Exception:
                 if not configured:
                     self._run(egress, ["tc", "qdisc", "del", *dev, "root"])

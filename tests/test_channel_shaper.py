@@ -54,7 +54,7 @@ class ChannelShaperTests(unittest.TestCase):
         }
         self.assertEqual({cmd[4] for cmd in network.commands if cmd[:3] == ["tc", "qdisc", "add"]},
                          la1_interfaces)
-        self.assertTrue(any("477ns" in cmd for cmd in network.commands))
+        self.assertTrue(any("4765us" in cmd for cmd in network.commands))
 
         later = deepcopy(data)
         later["snapshots"].append({"sim_time_ms": 1000, "links": []})

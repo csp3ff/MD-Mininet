@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from importlib.util import find_spec
+from ipaddress import IPv4Address
 import os
 from pathlib import Path
 
@@ -12,13 +13,24 @@ from channel_mininet.channel_schedule import load_channel_schedule
 from channel_mininet.schema import SceneError, load_scene
 
 
+def _listen_address(value: str) -> str:
+    try:
+        return str(IPv4Address(value))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not an IPv4 address; use this machine's actual address, "
+            "not CONTROLLER_IP"
+        ) from exc
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="md-controller")
     parser.add_argument("scene", help="scene JSON shared with the Mininet workers")
-    parser.add_argument("--listen-host", default="127.0.0.1")
+    parser.add_argument("--listen-host", type=_listen_address, default="127.0.0.1")
     parser.add_argument("--listen-port", type=int, default=6653)
     parser.add_argument("--channel-profile", help="version-2 channel timeline; omitted links stay at Mininet defaults")
-    parser.add_argument("--channel-control-host", help="channel listener address (defaults to --listen-host)")
+    parser.add_argument("--channel-control-host", type=_listen_address,
+                        help="channel listener IPv4 address (defaults to --listen-host)")
     parser.add_argument("--channel-control-port", type=int, default=6654)
     args = parser.parse_args(argv)
     if not 1 <= args.listen_port <= 65535:

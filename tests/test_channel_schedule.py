@@ -45,10 +45,10 @@ class ChannelScheduleTests(unittest.TestCase):
         with self.assertRaisesRegex(SceneError, "strictly increasing"):
             schedule_from_dict(data, self.scene)
 
-    def test_rejects_delay_below_one_nanosecond(self) -> None:
+    def test_rejects_delay_that_rounds_to_zero_microseconds(self) -> None:
         data = deepcopy(self.reference)
-        data["snapshots"][0]["links"][0]["a_to_b"]["netem_delay_ms"] = 0.0000001
-        with self.assertRaisesRegex(SceneError, "rounds to zero nanoseconds"):
+        data["snapshots"][0]["links"][0]["a_to_b"]["netem_delay_ms"] = 0.0004765
+        with self.assertRaisesRegex(SceneError, "rounds to zero microseconds"):
             schedule_from_dict(data, self.scene)
 
     def test_rejects_missing_direction(self) -> None:

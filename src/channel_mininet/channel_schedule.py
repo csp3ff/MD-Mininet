@@ -18,9 +18,9 @@ from typing import Any, Mapping
 from channel_mininet.schema import Scene, SceneError, scene_fingerprint
 
 
-def netem_delay_ns(delay_ms: float) -> int:
-    """Quantize a sourced millisecond target to tc's integer nanoseconds."""
-    return int((Decimal(str(delay_ms)) * Decimal(1_000_000)).to_integral_value(
+def netem_delay_us(delay_ms: float) -> int:
+    """Quantize a sourced millisecond target to legacy tc's microseconds."""
+    return int((Decimal(str(delay_ms)) * Decimal(1_000)).to_integral_value(
         rounding=ROUND_HALF_UP
     ))
 
@@ -121,10 +121,10 @@ def _direction(value: Any, label: str) -> DirectionTarget:
         raise SceneError(f"{label}.bandwidth_mbps is below one bit/s")
     if bandwidth * 1_000_000 > 2**63 - 1:
         raise SceneError(f"{label}.bandwidth_mbps exceeds supported bit rate")
-    if delay > (2**63 - 1) / 1_000_000:
+    if delay > (2**32 - 1) / 1_000:
         raise SceneError(f"{label}.netem_delay_ms exceeds supported delay")
-    if delay > 0 and netem_delay_ns(delay) == 0:
-        raise SceneError(f"{label}.netem_delay_ms rounds to zero nanoseconds")
+    if delay > 0 and netem_delay_us(delay) == 0:
+        raise SceneError(f"{label}.netem_delay_ms rounds to zero microseconds")
     return DirectionTarget(
         bandwidth_mbps=bandwidth,
         netem_delay_ms=delay,
