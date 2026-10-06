@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from channel_mininet.runtime.deployment import load_deployment
+from channel_mininet.scene_bundle import bundled_file, scene_file
 from channel_mininet.runtime.names import planned_interface_names
 from channel_mininet.runtime.vxlan import (
     check_local_underlay, plan_tunnels, shaped_bridge_name,
@@ -64,7 +65,9 @@ def _bridge_dpid(bridge: str) -> str | None:
 def clean(scene_path: str, worker_id: str | None, deployment_path: str | None) -> None:
     if os.geteuid() != 0:
         raise RuntimeError("cleanup requires root; use sudo ./clean.sh")
-    scene = load_scene(scene_path)
+    scene = load_scene(scene_file(scene_path))
+    if worker_id is not None:
+        deployment_path = bundled_file(scene_path, deployment_path, "deployment.yml")
     if deployment_path is not None and worker_id is None:
         raise SceneError("--deployment requires --worker")
 

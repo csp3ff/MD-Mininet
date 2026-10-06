@@ -44,6 +44,9 @@ class ChannelShaperTests(unittest.TestCase):
     def test_unlisted_links_keep_default_and_later_omission_removes_owned_qdisc(self) -> None:
         scene = load_scene(ROOT / "configs/two_workers.json")
         data = json.loads((ROOT / "configs/channel_profile.reference.json").read_text())
+        data["snapshots"][0]["links"] = [
+            link for link in data["snapshots"][0]["links"] if link["link_id"] == "la1"
+        ]
         network = _Network()
         shaper = ChannelShaper(scene, network, ("a",))
         first = schedule_from_dict(data, scene).snapshots[0]

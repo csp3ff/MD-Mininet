@@ -19,10 +19,13 @@ class ChannelScheduleTests(unittest.TestCase):
         self.scene = load_scene(ROOT / "configs/two_workers.json")
         self.reference = json.loads((ROOT / "configs/channel_profile.reference.json").read_text())
 
-    def test_partial_reference_leaves_other_links_at_defaults(self) -> None:
+    def test_complete_reference_covers_every_scene_link(self) -> None:
         schedule = schedule_from_dict(self.reference, self.scene)
         self.assertEqual(schedule.snapshots[0].sim_time_ms, 0)
-        self.assertEqual([link.link_id for link in schedule.snapshots[0].links], ["la1"])
+        self.assertEqual(
+            {link.link_id for link in schedule.snapshots[0].links},
+            set(self.scene.links_by_id),
+        )
 
     def test_full_coverage_and_directional_values(self) -> None:
         data = deepcopy(self.reference)

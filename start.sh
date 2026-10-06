@@ -24,7 +24,9 @@ Usage: ./start.sh [--all-workers | --worker WORKER_ID] [--scene PATH]
                   [--channel] [--channel-control-port PORT]
 
 Without options, start the complete example topology on this machine.
-The scene path is relative to the project root unless absolute.
+The scene path is relative to the project root unless absolute. A directory
+uses workers.json, deployment.yml and channel.json. With --worker, deployment
+and channel mode are selected automatically from that directory.
 EOF
 }
 
@@ -50,7 +52,7 @@ while (($#)); do
             ;;
         --scene)
             if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then
-                echo "--scene requires a file path." >&2
+                echo "--scene requires a directory or JSON file path." >&2
                 exit 2
             fi
             scene="$2"
@@ -121,6 +123,26 @@ while (($#)); do
             ;;
     esac
 done
+
+if [[ -d "$scene" ]]; then
+    scene_dir="$scene"
+    scene="$scene_dir/workers.json"
+    for required_file in "$scene" "$scene_dir/deployment.yml" "$scene_dir/channel.json"; do
+        if [[ ! -f "$required_file" ]]; then
+            echo "Scene directory is missing: $required_file" >&2
+            exit 1
+        fi
+    done
+    if [[ ${scope[0]} == --worker ]]; then
+        if ((${#deployment_opts[@]} == 0)); then
+            deployment_opts=(--deployment "$scene_dir/deployment.yml")
+        fi
+        if [[ "$channel_selected" == false ]]; then
+            channel_opts+=(--channel)
+            channel_selected=true
+        fi
+    fi
+fi
 
 if [[ "$controller_port_selected" == true && "$controller_host_selected" == false ]]; then
     echo "--controller-port requires --controller-host." >&2

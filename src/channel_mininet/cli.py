@@ -16,6 +16,7 @@ from channel_mininet.runtime.deployment import load_deployment
 from channel_mininet.runtime.vxlan import plan_tunnels
 from channel_mininet.runtime.worker import run_basic_network
 from channel_mininet.schema import SceneError, load_scene, scene_fingerprint
+from channel_mininet.scene_bundle import bundled_file, scene_file
 from channel_mininet.topology.builder import build_topology
 from channel_mininet.topology.placement import plan_worker
 
@@ -33,9 +34,10 @@ def _parser() -> argparse.ArgumentParser:
         "channel-plan", help="compute sourced directional link states without deployment"
     )
     channel_plan.add_argument("scene")
-    channel_plan.add_argument("profile", help="JSON channel profile bound to the scene digest")
+    channel_plan.add_argument("profile", nargs="?", help="JSON channel profile bound to the scene digest")
     up = commands.add_parser("up", help="start the basic Mininet network in the foreground")
-    up.add_argument("scene")
+    up.add_argument("scene", nargs="?", help="scene JSON or scene directory")
+    up.add_argument("--scene", dest="scene_dir", help="scene directory (or legacy JSON file)")
     scope = up.add_mutually_exclusive_group(required=True)
     scope.add_argument("--worker", help="start one worker, including VXLAN with --deployment")
     scope.add_argument(
@@ -48,35 +50,62 @@ def _parser() -> argparse.ArgumentParser:
                     help="receive controller-published channel time slices")
     up.add_argument("--channel-control-port", type=int,
                     help="central controller channel port (default 6654)")
+    generate = commands.add_parser("generate-scene", help="complete a topology into a scene directory")
+    generate.add_argument("source", help="existing topology JSON or scene directory")
+    random_scene = commands.add_parser("generate-random-scene", help="generate topology and complete scene directory")
+    random_scene.add_argument("--experiment", default="generated")
+    random_scene.add_argument("--subnet", default="10.77.0.0/24")
+    random_scene.add_argument("--hosts-per-worker", type=int, default=8)
+    random_scene.add_argument("--switches-per-worker", type=int, default=2)
+    for command in (generate, random_scene):
+        command.add_argument("output", help="new scene directory")
+        command.add_argument("--worker-ip", action="append", required=True, metavar="ID=IPv4")
+        command.add_argument("--controller-host", required=True, help="controller IPv4 address")
+        command.add_argument("--controller-port", type=int, default=6653)
+        command.add_argument("--channel-control-port", type=int, default=6654)
+        command.add_argument("--seed", type=int, default=0)
+        command.add_argument("--recorded-at", help="ISO 8601 timestamp with UTC offset")
+    generate.add_argument("--base-channel", help="keep existing version-2 link targets and fill missing links")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        scene = load_scene(args.scene)
+        if args.command in ("generate-scene", "generate-random-scene"):
+            from channel_mininet.scene_generator import generate_scene
+            generate_scene(args)
+            return 0
+        scene_arg = args.scene
         if args.command == "up":
+            if bool(args.scene) == bool(args.scene_dir):
+                raise SceneError("specify exactly one scene path or --scene directory")
+            scene_arg = args.scene_dir or args.scene
+        scene = load_scene(scene_file(scene_arg))
+        if args.command == "up":
+            channel_enabled = args.channel or (args.worker is not None and Path(scene_arg).is_dir())
             if args.controller_host is None and args.controller_port is not None:
                 raise SceneError("--controller-port requires --controller-host")
             deployment = None
-            if args.deployment:
+            deployment_path = bundled_file(scene_arg, args.deployment, "deployment.yml") if args.worker else args.deployment
+            if deployment_path:
                 if args.all_workers:
                     raise SceneError("--deployment requires --worker")
                 if args.controller_host is not None or args.controller_port is not None:
                     raise SceneError("--deployment supplies the controller address; omit --controller-host/port")
-                deployment = load_deployment(args.deployment, scene)
-            if args.channel_control_port is not None and not args.channel:
+                deployment = load_deployment(deployment_path, scene)
+            if args.channel_control_port is not None and not channel_enabled:
                 raise SceneError("--channel-control-port requires --channel")
             if args.channel_control_port is not None and not 1 <= args.channel_control_port <= 65535:
                 raise SceneError("--channel-control-port must be between 1 and 65535")
-            if args.channel and deployment is None and args.controller_host is None:
+            if channel_enabled and deployment is None and args.controller_host is None:
                 raise SceneError("--channel requires a central controller")
-            if args.channel and deployment is not None and args.channel_control_port is not None:
+            if channel_enabled and deployment is not None and args.channel_control_port is not None:
                 raise SceneError("--deployment supplies the channel control port")
             channel_port = (
                 deployment.channel_port if deployment else
                 6654 if args.channel_control_port is None else args.channel_control_port
-            ) if args.channel else None
+            ) if channel_enabled else None
             openflow_port = (deployment.controller_port if deployment else
                              6653 if args.controller_port is None else args.controller_port)
             if channel_port is not None and channel_port == openflow_port:
@@ -91,12 +120,15 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "channel-plan":
+            profile_path = bundled_file(scene_arg, args.profile, "channel.json")
+            if profile_path is None:
+                raise SceneError("channel-plan requires a profile file or a scene directory")
             try:
-                version = json.loads(Path(args.profile).read_text(encoding="utf-8")).get("version")
+                version = json.loads(profile_path.read_text(encoding="utf-8")).get("version")
             except (OSError, ValueError, AttributeError) as exc:
-                raise SceneError(f"cannot inspect channel profile {args.profile}: {exc}") from exc
+                raise SceneError(f"cannot inspect channel profile {profile_path}: {exc}") from exc
             if version == 2:
-                schedule = load_channel_schedule(args.profile, scene)
+                schedule = load_channel_schedule(profile_path, scene)
                 result = {
                     "scene_digest": schedule.scene_digest,
                     "channel_schedule_digest": schedule.digest,
@@ -126,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                     })
                 print(json.dumps(result, indent=2, sort_keys=True))
                 return 0
-            profile = load_channel_profile(args.profile, scene)
+            profile = load_channel_profile(profile_path, scene)
             states = build_channel_states(scene, profile)
             modeled = {state.link_id for state in states}
             result = {
@@ -157,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
         neighbors = build_static_neighbors(scene)
         interfaces = planned_interface_names(scene)
         if args.command == "validate":
+            if Path(scene_arg).is_dir():
+                deployment_path = bundled_file(scene_arg, None, "deployment.yml")
+                channel_path = bundled_file(scene_arg, None, "channel.json")
+                load_deployment(deployment_path, scene)
+                load_channel_schedule(channel_path, scene)
             result = {
                 "experiment": scene.experiment,
                 "scene_digest": scene_fingerprint(scene),
@@ -199,8 +236,9 @@ def main(argv: list[str] | None = None) -> int:
                     if node_id in worker.node_ids
                 },
             }
-            if args.deployment:
-                deployment = load_deployment(args.deployment, scene)
+            deployment_path = bundled_file(scene_arg, args.deployment, "deployment.yml") if args.deployment or Path(scene_arg).is_dir() else None
+            if deployment_path:
+                deployment = load_deployment(deployment_path, scene)
                 result["vxlan_tunnels"] = [
                     {"link": tunnel.link_id, "switch": tunnel.switch_id,
                      "port": tunnel.port_name, "local_ip": str(tunnel.local_ip),

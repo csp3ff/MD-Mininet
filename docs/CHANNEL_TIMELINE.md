@@ -8,7 +8,7 @@
 
 `bandwidth_mbps` 是发送出口的目标整形速率，不是物理端口标称速率或业务实测吞吐。`netem_delay_ms` 是直接加在出口的 **附加时延**，不是链路报文总单向时延，也不同于旧版 `ChannelState.delay_ms` 所表示的物理传播时延。当前样例中的 4.765 ms 是场景假设，不是 100 m 电缆传播估计或实测链路时延。
 
-[`configs/channel_profile.reference.json`](../configs/channel_profile.reference.json) 只配置 `la1`，其余 18 条链路保持默认；中央控制器现在可以直接加载这个参考文件。正式研究如需这些链路的目标带宽和时延，应由 MATLAB 或采集流程提供有来源的结果，不自动补值。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
+[`configs/channel_profile.reference.json`](../configs/channel_profile.reference.json) 与 [`configs/scenes/two_workers/channel.json`](../configs/scenes/two_workers/channel.json) 均覆盖 19 条链路，`la1` 保留原有设定，其余 18 条由种子 42 随机生成；中央控制器可直接加载场景目录。所有目标值目前都是场景假设。正式研究应由 MATLAB 或采集流程提供有来源的结果，替换这些假设。旧版 `version: 1` 物理输入仍可供 `channel-plan` 只读解析，但不参与时间片运行。
 
 例如，`sudo ./start.sh --worker a --deployment configs/deployment.yml` 未指定 `--channel`，只创建普通 Mininet 链路，完全不读取参考文件，也不会设置 HTB/netem。启用信道后，`la1` 样例的 4.765 ms 换算为 `4765us`，分别配置在两个发送方向；经过该链路的往返报文目标附加时延合计为 9.53 ms，实际效果仍受内核定时与排队影响。验收应先确认中央控制器已加载文件且每个 Worker 报告 `APPLIED`，再检查对应发送接口的 `tc qdisc/class` 配置并测量实际时延。
 
@@ -19,30 +19,27 @@
 只读查看样例：
 
 ```bash
-./.venv/bin/md-mininet channel-plan configs/two_workers.json configs/channel_profile.reference.json
+./.venv/bin/md-mininet channel-plan configs/scenes/two_workers
 ```
 
 中央控制器独自加载参考文件或其他版本 2 时间片文件：
 
 ```bash
-./.venv/bin/md-controller configs/two_workers.json \
-  --listen-host 192.168.145.132 --listen-port 6653 \
-  --channel-profile configs/channel_profile.reference.json \
-  --channel-control-host 192.168.145.132 --channel-control-port 6654
+./.venv/bin/md-controller --scene configs/scenes/two_workers
 ```
 
-每台 Worker 使用同一场景和部署配置，分别启动 `--worker a`、`--worker b` 并加 `--channel`。部署文件 `controller.channel_port` 缺省为 6654。单机 `--all-workers` 也可通过 `--controller-host` 和 `--channel` 连接中央控制器。Worker 不读取时间片文件；控制器通过独立 TCP 通道发送完整时间片，Worker 只应用自己负责的出口。域控制器目前没有实现，信道通道不依赖它。
+每台 Worker 使用同一场景目录，分别启动 `--worker a`、`--worker b`；目录模式自动读取部署文件并启用信道。部署文件 `controller.channel_port` 缺省为 6654。单机 `--all-workers` 也可通过 `--controller-host` 和 `--channel` 连接中央控制器。Worker 不读取时间片文件；控制器通过独立 TCP 通道发送完整时间片，Worker 只应用自己负责的出口。域控制器目前没有实现，信道通道不依赖它。
 
 ```bash
 # 在 Worker a 机器上
-sudo ./start.sh --worker a --deployment configs/deployment.yml --channel
+sudo ./start.sh --scene configs/scenes/two_workers --worker a
 # 在 Worker b 机器上
-sudo ./start.sh --worker b --deployment configs/deployment.yml --channel
+sudo ./start.sh --scene configs/scenes/two_workers --worker b
 ```
 
 控制器的信道 TCP 端口需对 Worker 可达，并应限制在可信的实验网络中；当前协议按场景和 Worker ID 校验消息，但不提供独立的身份认证。
 
-如果 Worker 显示 `Connection refused`，说明它连接的控制器地址和信道端口（部署文件中默认为 `192.168.145.132:6654`）没有接受连接。OpenFlow 的 `6653` 端口能连接，不代表信道端口已经启动。应先在中央控制器机器上按上面的命令启动控制器，再核对控制器日志中的 `Channel run ... listening` 和 Worker 侧的 `APPLIED` 回报。仅启动不带 `--channel-profile` 的控制器不会监听 6654。命令中的 `CONTROLLER_IP` 若直接照字面输入也不能绑定为有效 IP，应填写控制器机器实际使用的地址。
+如果 Worker 显示 `Connection refused`，说明它连接的控制器地址和信道端口（示例部署文件中为 `192.168.145.132:6654`）没有接受连接。OpenFlow 的 `6653` 端口能连接，不代表信道端口已经启动。应先在中央控制器机器上按上面的命令启动控制器，再核对控制器日志中的 `Channel run ... listening` 和 Worker 侧的 `APPLIED` 回报。旧式 JSON 文件模式下，控制器不带 `--channel-profile` 不会监听 6654；目录模式自动加载 `channel.json`。
 
 ## 调度与故障
 

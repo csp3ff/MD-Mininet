@@ -2,7 +2,49 @@
 
 MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完整拓扑和多台物理机分区运行。每台 Worker 电脑安装**同一份源码**、读取**同一份场景配置**，再用不同的 Worker ID 选择本机负责的节点和链路。当前示例有 A、B 两个分区，每个分区包含 8 台模拟主机和 2 台模拟交换机。
 
-> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。中央控制器发布链路时间片的源码已加入，参考文件只配置 `la1`，其他链路保持默认；时间片数据面仍待现场验收。详见 [链路时间片说明](docs/CHANNEL_TIMELINE.md)与 [研究计划](docs/RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
+> **当前状态：分布式 Mininet 网络已搭建。** 据使用者运行反馈，单个集中式 Ryu 控制器管理交换机，当前任意两个模拟主机可以相互发包；这不代表链路性能、故障恢复和多轮实验已经验收。默认 `up` 使用 OVS 桥；指定远程控制器后使用 OpenFlow 1.3 交换机。`--all-workers` 在单机创建完整拓扑；`--worker` 配合部署配置在每台物理机创建本地拓扑及跨机 VXLAN 端口。中央控制器发布链路时间片的源码已加入，完整参考文件覆盖 19 条链路，时间片数据面仍待现场验收。详见 [链路时间片说明](docs/CHANNEL_TIMELINE.md)与 [研究计划](docs/RESEARCH_PLAN.md)。`validate`、`plan` 和 `channel-plan` 都是只读命令。
+
+## 场景目录与最新启动命令
+
+一个场景目录包含 `workers.json`（仿真拓扑）、`deployment.yml`（物理机与控制器地址）和 `channel.json`（版本 2 时间片）。完整示例在 [`configs/scenes/two_workers/`](configs/scenes/two_workers)。同一目录须同步到控制器与所有 Worker；后两个文件的 `scene_digest` 必须与 `workers.json` 计算出的摘要一致。示例物理地址为 Worker a `192.168.145.131`、Worker b 和控制器 `192.168.145.132`，使用前应改成实际地址。
+
+以下命令分别在控制器、Worker a、Worker b 所在机器的项目根目录运行。`--scene` 指向场景**文件夹**；控制器从 `deployment.yml` 取得监听地址和端口并加载 `channel.json`，Worker 自动读取部署配置并启用信道模式。控制器先启动，之后启动两个 Worker。按项目约定，这些命令目前仅作为操作说明，本次没有执行。
+
+```bash
+# 控制器机器（192.168.145.132）
+./.venv/bin/md-controller --scene configs/scenes/two_workers
+
+# Worker a 机器（192.168.145.131）
+sudo ./start.sh --scene configs/scenes/two_workers --worker a
+
+# Worker b 机器（192.168.145.132）
+sudo ./start.sh --scene configs/scenes/two_workers --worker b
+```
+
+只读检查完整目录及每条链路的双向目标：
+
+```bash
+./.venv/bin/md-mininet validate configs/scenes/two_workers
+./.venv/bin/md-mininet channel-plan configs/scenes/two_workers
+./.venv/bin/md-mininet plan configs/scenes/two_workers --worker a
+./.venv/bin/md-mininet plan configs/scenes/two_workers --worker b
+```
+
+基于已有拓扑生成另一套目录时，下面的命令用种子 42 为全部链路随机生成**场景假设**。如果有仅配置部分链路的版本 2 文件，可加 `--base-channel 文件路径`，保留其中的配置并随机补齐缺失链路。输出目录必须尚不存在；生成器不启动 Mininet。`--seed` 固定数值，若还需字节级复现，显式指定 `--recorded-at 2026-10-06T00:00:00+00:00`。生成结果不是实测性能参数，正式实验应替换并注明真实来源。
+
+```bash
+./.venv/bin/md-mininet generate-scene configs/two_workers.json configs/scenes/my_scene \
+  --worker-ip a=192.168.145.131 --worker-ip b=192.168.145.132 \
+  --controller-host 192.168.145.132 --seed 42
+```
+
+也可同时随机创建拓扑与全部链路目标。下面的命令生成每个 Worker 8 台主机、2 台交换机；交换机组成一条连通链，主机随机接入本 Worker 的交换机。主机地址从 `10.77.0.0/24` 依次分配，随机种子决定接入交换机及每条链路的双向目标；仍需填入真实物理机地址。
+
+```bash
+./.venv/bin/md-mininet generate-random-scene configs/scenes/random_two_workers \
+  --worker-ip a=192.168.145.131 --worker-ip b=192.168.145.132 \
+  --controller-host 192.168.145.132 --seed 42
+```
 
 ## 开发进度与下一阶段
 
@@ -13,7 +55,7 @@ MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完�
 - [x] 实现独立的集中式 Ryu 控制器、端口核对、IPv4/ARP 流表安装与 Barrier 回执处理。
 - [x] **使用者运行反馈：** 分布式网络已搭建，任意两个模拟主机当前可以相互发包；曾查看到 `sa1` 的规则及命中计数。
 - [x] **P1 源码进展：** 已写入带节点参数来源字段校验的通用双向静态快照计算和只读 `channel-plan` 命令；参考配置已完成 `la1` 双向计算的只读运行验证。
-- [x] **时间片源码进展：** 已加入版本 2 数据校验、中央控制器直发、Worker 出口整形及跨机独立整形路径；这些新增路径均未运行验证，参考文件只覆盖 `la1`。
+- [x] **时间片源码进展：** 已加入版本 2 数据校验、中央控制器直发、Worker 出口整形及跨机独立整形路径；这些新增路径均未运行验证，参考文件覆盖全部 19 条链路。
 - [ ] **P1 数据与演化：** 为拟模拟设备采集有参考依据的能力与初始状态，增加节点状态、共享环境、仿真时间和可复现演化规则，再核对状态序列。
 - [ ] **P2 运行验收：** 实测本地链路与跨 Worker VXLAN 的双向整形、时延、切换错位、失联关停和资源清理；当前只有未运行的实现代码。
 - [ ] **P3 无线与有线模型：** 分别补充两类介质的输入参数与计算方法，共用 P1 输出和 P2 下发路径。
@@ -86,7 +128,7 @@ Worker A 和 Worker B 分别查看自己的规划：
 ./.venv/bin/md-mininet plan configs/two_workers.json --worker b
 ```
 
-两台电脑分别运行时，每台都应放置**完全相同的** `configs/two_workers.json`，一台使用 `--worker a`，另一台使用 `--worker b`。输出中的 `scene_digest` 应相同；该摘要用于识别场景不一致，不代表两台机器已经建立连接。默认 `plan` 只输出节点、边界链路、逻辑路由及预定接口名；带 `--deployment` 时还输出 VXLAN 端点规划。两种方式都不会启动 Worker 进程。
+两台电脑分别运行时，每台都应放置**完全相同的**场景目录，一台使用 `--worker a`，另一台使用 `--worker b`。输出中的 `scene_digest` 应相同；该摘要用于识别场景不一致，不代表两台机器已经建立连接。传入旧式 JSON 文件时，`plan` 默认只输出节点、边界链路、逻辑路由及预定接口名，带 `--deployment` 才输出 VXLAN 端点规划；传入场景目录时会自动读取部署文件。两种方式都不会启动 Worker 进程。
 
 示例场景位于 [`configs/two_workers.json`](configs/two_workers.json)。第一版把两个“网络”定义为拓扑和部署分区，所有模拟主机共用 `10.77.0.0/24`；它们目前不是两个独立的 IP 子网。修改示例时，应保持节点 ID、主机 IP/MAC、交换机 DPID 和链路 ID 全局唯一。每台主机当前只能有一条业务链路，跨 Worker 链路只能连接交换机。
 
@@ -98,7 +140,7 @@ Worker A 和 Worker B 分别查看自己的规划：
 - `links` 中每项包含 `link_id`、`model="generic"`、`a_to_b` 和 `b_to_a`。每个方向都要给出 `available`、正数 `nominal_bandwidth_mbps`、非负 `distance_m`（实际传播路径长度，米）、大于零且不超过真空光速的 `propagation_speed_mps`（该介质中的传播速度，米/秒）和 `source`；`source` 含 `kind`（`measurement`、`datasheet` 或 `scenario_assumption`）、`reference`、带时区的 `recorded_at`，用于区分测量值与场景设定。名义容量不得超过两个端点中较低的有来源端口速率，配置错误会直接报出，不再靠输出时取最小值掩盖。可选 `max_distance_m` 是该方向明确给出的正数场景上界，提供后 `distance_m` 不得超过它；这不是所有介质通用的物理极限。可选 `velocity_factor_of_c` 须在 0 到 1 之间，提供后必须与 `propagation_speed_mps / 299792458` 一致。输出的 `delay_ms = 1000 × distance_m / propagation_speed_mps` **仅为单向传播时延**，不含发送/序列化、交换处理、排队或重传时延。可选 `jitter_ms`、`loss_pct`；未提供时输出 `null`，不自动猜测。仅有端口速率、带宽、频率或发射功率，无法推出传播时延；缺少长度或传播速度时配置报错。
 - 可以只配置部分链路以做小规模研究；已配置链路必须包含两个端点的来源数据及两个方向。输出列出 `modeled_links`、`unmodeled_links` 和每个方向的 `ChannelState`，便于识别覆盖缺口。
 
-[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的单时间片样例，只覆盖 `ha1`—`sa1` 的 `la1`；其余 18 条链路保持普通 Mininet 默认配置。该文件现在可以由中央控制器加载。双向 1000 Mb/s 是参考端口上限形成的场景假设，并非业务实测吞吐；当前 JSON 的 `netem_delay_ms: 4.765` 是示例场景设定的 **附加**时延，Worker 将它换算为 `4765us` 下发给 `tc`，不是 100 m 电缆的传播测量值，也不是 Mininet 报文总时延。正数时延按微秒四舍五入；小于 0.5 µs、会量化为 0 µs 的配置直接拒绝。
+[`configs/channel_profile.reference.json`](configs/channel_profile.reference.json) 现为版本 2 的完整单时间片样例，覆盖全部 19 条链路；它与场景目录中的 [`channel.json`](configs/scenes/two_workers/channel.json) 内容相同。`la1` 保留原有双向 1000 Mb/s、4.765 ms 附加时延设定，其他 18 条链路由种子 42 随机生成。所有数值均为场景假设，并非业务实测吞吐或传播测量值。Worker 将 `la1` 的时延换算为 `4765us` 下发给 `tc`。正数时延按微秒四舍五入；小于 0.5 µs、会量化为 0 µs 的配置直接拒绝。
 
 在项目根目录运行只读规划：
 
@@ -162,14 +204,14 @@ sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
 
 ### 多机部署：每台机器运行一个 Worker
 
-多机模式下，`two_workers.json` 和 `deployment.yml` **同时存在，不合并内容**：前者描述仿真节点与逻辑链路，后者描述物理机和控制器地址。每个 Worker 使用相同的源码、场景和部署配置，只改变 `--worker` 参数。Worker 数量从场景读取，没有写死为两台。[`configs/deployment.example.yml`](configs/deployment.example.yml) 是带注释的模板；其中 `192.0.2.x` 和摘要占位符必须换成实际值。`workers` 必须与场景中的 Worker ID 完全一致，地址必须互不重复，且本机的 Worker 地址必须实际配置在本机网卡上。已有 `.json` 部署文件仍可读取。
+多机模式下，场景目录中的 `workers.json`、`deployment.yml` 和 `channel.json` 各司其职：前者描述仿真拓扑，中者描述物理地址，后者描述双向信道目标。每个 Worker 使用相同的源码和场景目录，只改变 `--worker` 参数。Worker 数量从场景读取，没有写死为两台。[`configs/deployment.example.yml`](configs/deployment.example.yml) 是旧式分文件部署的带注释模板；其中 `192.0.2.x` 和摘要占位符必须换成实际值。`workers` 必须与场景中的 Worker ID 完全一致，地址必须互不重复，且本机的 Worker 地址必须实际配置在本机网卡上。已有 `.json` 部署文件仍可读取。
 
-先在所有机器准备相同的 `configs/two_workers.json`，运行只读校验取得 `scene_digest`，核对并在场景变更后更新 `configs/deployment.yml`，再将这份 YAML 文件复制到所有 Worker。仓库中示例部署文件当前填的是 `a=192.168.145.131`、`b=192.168.145.132`、中央控制器 `192.168.145.132`，只适用于实际地址与之相符的机器；摘要只由场景文件计算，修改物理 IP 不会改变它：
+先在所有机器准备相同的 `configs/scenes/two_workers` 目录，运行只读校验取得 `scene_digest`，核对并在场景变更后更新目录中的 `deployment.yml` 和 `channel.json`。仓库中示例部署文件当前填的是 `a=192.168.145.131`、`b=192.168.145.132`、中央控制器 `192.168.145.132`，只适用于实际地址与之相符的机器；摘要只由拓扑文件计算，修改物理 IP 不会改变它：
 
 ```bash
-./.venv/bin/md-mininet validate configs/two_workers.json
-./.venv/bin/md-mininet plan configs/two_workers.json --worker a --deployment configs/deployment.yml
-./.venv/bin/md-mininet plan configs/two_workers.json --worker b --deployment configs/deployment.yml
+./.venv/bin/md-mininet validate configs/scenes/two_workers
+./.venv/bin/md-mininet plan configs/scenes/two_workers --worker a
+./.venv/bin/md-mininet plan configs/scenes/two_workers --worker b
 ```
 
 `plan` 中的 `vxlan_tunnels` 显示每条边界链路在本机的交换机、接口、远端地址与 VNI。增加 Worker 时，将新 ID、节点、链路加入场景，并在部署文件 `workers` 中加入对应物理地址；每条跨 Worker 交换机链路都会得到两个端点，双方使用相同 VNI。部署代码会在场景内检测 VNI 冲突。各物理机之间需要可路由的 IPv4 底层网络，并允许双向 UDP 4789；所有交换机还需要能连接中央控制器的 TCP 6653（或配置中的端口）；时间片模式另外需要 TCP 6654。VXLAN 封装增加报文长度，底层 MTU 应留出封装余量。普通受控模式不进行时间片启动屏障；时间片模式在中央控制器中等待所有 Worker 就绪，但不自动同步物理机时钟。 
@@ -177,49 +219,44 @@ sudo ./start.sh --controller-host 127.0.0.1 --controller-port 6653
 在控制器机器上监听 Worker 可达的地址（不能使用仅本机可达的 `127.0.0.1`）；`--listen-host`、`--listen-port` 须与部署配置中的 `controller` 一致：
 
 ```bash
-./.venv/bin/md-controller configs/two_workers.json --listen-host 192.168.145.132 --listen-port 6653
+./.venv/bin/md-controller --scene configs/scenes/two_workers
 ```
 
 随后在每台 Worker 上分别前台启动，命令中的 Worker ID 必须不同：
 
 ```bash
 # Worker a 所在机器
-sudo ./start.sh --scene configs/two_workers.json --worker a --deployment configs/deployment.yml
+sudo ./start.sh --scene configs/scenes/two_workers --worker a
 
 # Worker b 所在机器
-sudo ./start.sh --scene configs/two_workers.json --worker b --deployment configs/deployment.yml
+sudo ./start.sh --scene configs/scenes/two_workers --worker b
 ```
 
 每个进程先清理本机对应场景和 Worker 的残留资源，再创建本地 Mininet 节点和内部链路，并为本机边界交换机添加 OVS VXLAN 端口。端口名与场景中的逻辑链路对应，由中央控制器核对实际 OpenFlow 端口号并安装路径。所有相关交换机都收到控制器的 `Flow update confirmed` 日志后，才能据此判断规则已经安装；这条日志本身不证明跨机数据面可达。正常退出各自的 Mininet CLI 或向主进程发送 `SIGTERM` 时，本进程删除自己创建的 VXLAN 端口并停止本地网络。
 
 ### 多机时间片模式：中央控制器与各 Worker 完整启动顺序
 
-控制器和所有 Worker 必须使用**同一版本源码**、相同的 `two_workers.json` 与 `deployment.yml`。更新源码后，若 `.venv` 中安装的不是可编辑版本，应按安装章节在每台机器重新安装项目，使 `md-controller` 和 `start.sh` 加载新代码；同时同步控制器读取的时间片 JSON。控制器单独读取版本 2 时间片文件，Worker 不读取它。示例参考文件只配置 `la1` 双向带宽和 4.765 ms 附加时延，其余链路保持 Mininet 默认参数；它可以用于检查发布流程，实际时延仍须现场测量。`deployment.yml` 的 `controller.host`、`port`、`channel_port` 必须与控制器实际监听的地址和端口一致。下例假设控制器和 Worker b 均在 `192.168.145.132`，Worker a 在 `192.168.145.131`；如果物理地址不同，先改部署文件与以下命令。`CONTROLLER_IP` 是说明文字，不能原样输入命令。
+控制器和所有 Worker 必须使用**同一版本源码**、相同的场景目录。更新源码后，若 `.venv` 中安装的不是可编辑版本，应按安装章节在每台机器重新安装项目，使 `md-controller` 和 `start.sh` 加载新代码。控制器单独读取版本 2 `channel.json`，Worker 不直接读取它；控制器发布完整时间片。参考数据覆盖 19 条链路，均属场景假设，实际时延仍须现场测量。`deployment.yml` 的 `controller.host`、`port`、`channel_port` 必须与控制器实际监听的地址和端口一致。下例假设控制器和 Worker b 均在 `192.168.145.132`，Worker a 在 `192.168.145.131`；如果物理地址不同，先改目录中的部署文件。
 
 1. 在 **192.168.145.132 的终端 1** 启动中央控制器。它同时监听 OpenFlow 的 6653 和信道控制的 6654；不需要 `sudo`。等待日志出现 `Channel run ... listening`，再启动 Worker。
 
    ```bash
    cd ~/MDNET
-   ./.venv/bin/md-controller configs/two_workers.json \
-     --listen-host 192.168.145.132 --listen-port 6653 \
-     --channel-profile configs/channel_profile.reference.json \
-     --channel-control-host 192.168.145.132 --channel-control-port 6654
+   ./.venv/bin/md-controller --scene configs/scenes/two_workers
    ```
 
 2. 在 **192.168.145.131 的终端** 启动 Worker a：
 
    ```bash
    cd ~/MDNET
-   sudo ./start.sh --scene configs/two_workers.json \
-     --worker a --deployment configs/deployment.yml --channel
+   sudo ./start.sh --scene configs/scenes/two_workers --worker a
    ```
 
 3. 在 **192.168.145.132 的终端 2** 启动 Worker b：
 
    ```bash
    cd ~/MDNET
-   sudo ./start.sh --scene configs/two_workers.json \
-     --worker b --deployment configs/deployment.yml --channel
+   sudo ./start.sh --scene configs/scenes/two_workers --worker b
    ```
 
 Worker a、b 可以互换启动顺序，但必须都连接且返回 `READY`，中央控制器才会发送首次 `COMMIT`。Mininet 显示 `Starting CLI` 只表示本地网络已创建；测量前等待 Worker 输出 `Channel snapshot 0 APPLIED`、控制器输出 `Channel snapshot 0 applied`，并确认相关交换机的 `Flow update confirmed`。中央控制器若只用上一节**不带** `--channel-profile` 的命令启动，就不会监听 6654；Worker 会报告 `Connection refused` 并保持实验接口关闭。Eventlet 的弃用警告本身不是失败；出现 `socket.gaierror` 或控制器 traceback 时，控制器已经退出，须先修正控制器命令。控制器正常运行期间须保持终端 1 的进程存在。
@@ -228,9 +265,9 @@ Worker a、b 可以互换启动顺序，但必须都连接且返回 `READY`，�
 
 ```bash
 cd ~/MDNET
-./.venv/bin/md-controller configs/two_workers.json \
+./.venv/bin/md-controller configs/scenes/two_workers \
   --listen-host 127.0.0.1 --listen-port 6653 \
-  --channel-profile configs/channel_profile.reference.json \
+  --channel-profile configs/scenes/two_workers/channel.json \
   --channel-control-host 127.0.0.1 --channel-control-port 6654
 ```
 
@@ -238,7 +275,7 @@ cd ~/MDNET
 
 ```bash
 cd ~/MDNET
-sudo ./start.sh --scene configs/two_workers.json --all-workers \
+sudo ./start.sh --scene configs/scenes/two_workers --all-workers \
   --controller-host 127.0.0.1 --controller-port 6653 \
   --channel --channel-control-port 6654
 ```
@@ -251,8 +288,7 @@ sudo ./start.sh --scene configs/two_workers.json --all-workers \
 
 ```bash
 cd ~/MDNET
-sudo ./clean.sh --scene configs/two_workers.json \
-  --worker b --deployment configs/deployment.yml
+sudo ./clean.sh --scene configs/scenes/two_workers --worker b
 ```
 
 Worker a 在自己的机器上将 `b` 改成 `a`。单机全部 Worker 模式使用 `sudo ./clean.sh --scene configs/two_workers.json --all-workers`。`vxlan_sys_4789` 是 OVS 管理的共享 VXLAN 数据面设备，可被多个逻辑 VXLAN 端口复用；它的存在本身不表示本实验有遗留资源，清理脚本不会删除它。

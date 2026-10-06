@@ -6,10 +6,11 @@ import argparse
 from importlib.util import find_spec
 from ipaddress import IPv4Address
 import os
-from pathlib import Path
 
 from channel_mininet.control.routing import build_routes
 from channel_mininet.channel_schedule import load_channel_schedule
+from channel_mininet.runtime.deployment import load_deployment
+from channel_mininet.scene_bundle import bundled_file, scene_file
 from channel_mininet.schema import SceneError, load_scene
 
 
@@ -25,31 +26,42 @@ def _listen_address(value: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="md-controller")
-    parser.add_argument("scene", help="scene JSON shared with the Mininet workers")
-    parser.add_argument("--listen-host", type=_listen_address, default="127.0.0.1")
-    parser.add_argument("--listen-port", type=int, default=6653)
+    parser.add_argument("scene", nargs="?", help="legacy scene JSON or scene directory")
+    parser.add_argument("--scene", dest="scene_dir", help="scene directory")
+    parser.add_argument("--listen-host", type=_listen_address)
+    parser.add_argument("--listen-port", type=int)
     parser.add_argument("--channel-profile", help="version-2 channel timeline; omitted links stay at Mininet defaults")
     parser.add_argument("--channel-control-host", type=_listen_address,
                         help="channel listener IPv4 address (defaults to --listen-host)")
-    parser.add_argument("--channel-control-port", type=int, default=6654)
+    parser.add_argument("--channel-control-port", type=int)
     args = parser.parse_args(argv)
+    if bool(args.scene) == bool(args.scene_dir):
+        parser.error("specify exactly one scene path or --scene directory")
+    scene_arg = args.scene_dir or args.scene
+    try:
+        scene_path = scene_file(scene_arg)
+        scene = load_scene(scene_path)
+        deployment_path = bundled_file(scene_arg, None, "deployment.yml")
+        deployment = load_deployment(deployment_path, scene) if deployment_path else None
+        profile_path = bundled_file(scene_arg, args.channel_profile, "channel.json")
+        if profile_path:
+            load_channel_schedule(profile_path, scene)
+        build_routes(scene)
+    except SceneError as exc:
+        parser.error(str(exc))
+    args.listen_host = args.listen_host or (str(deployment.controller_host) if deployment else "127.0.0.1")
+    if args.listen_port is None:
+        args.listen_port = deployment.controller_port if deployment else 6653
+    if args.channel_control_port is None:
+        args.channel_control_port = deployment.channel_port if deployment else 6654
     if not 1 <= args.listen_port <= 65535:
         parser.error("--listen-port must be between 1 and 65535")
     if not 1 <= args.channel_control_port <= 65535:
         parser.error("--channel-control-port must be 1..65535")
-    if args.channel_profile and args.channel_control_port == args.listen_port:
+    if profile_path and args.channel_control_port == args.listen_port:
         parser.error("--channel-control-port must differ from --listen-port")
-    if args.channel_control_host and not args.channel_profile:
+    if args.channel_control_host and not profile_path:
         parser.error("--channel-control-host requires --channel-profile")
-
-    scene_path = Path(args.scene).expanduser().resolve()
-    try:
-        scene = load_scene(scene_path)
-        build_routes(scene)
-        if args.channel_profile:
-            load_channel_schedule(args.channel_profile, scene)
-    except SceneError as exc:
-        parser.error(str(exc))
 
     if find_spec("ryu") is None:
         parser.error("Ryu is unavailable; install the controller extra")
@@ -64,8 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     from ryu.cmd import manager
 
     os.environ["MDNET_SCENE"] = str(scene_path)
-    if args.channel_profile:
-        os.environ["MDNET_CHANNEL_PROFILE"] = str(Path(args.channel_profile).expanduser().resolve())
+    if profile_path:
+        os.environ["MDNET_CHANNEL_PROFILE"] = str(profile_path)
         os.environ["MDNET_CHANNEL_HOST"] = args.channel_control_host or args.listen_host
         os.environ["MDNET_CHANNEL_PORT"] = str(args.channel_control_port)
     else:
