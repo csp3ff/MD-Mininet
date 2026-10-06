@@ -29,7 +29,7 @@ MD-Mininet 是一个面向多 Worker 实验的 Mininet 项目，支持单机完�
 先在开发电脑上将 `README.md`、`docs/`、`pyproject.toml`、`src/`、`configs/` 和 `.gitignore` 提交并推送。本仓库当前的远端名和分支名都叫 `master`，远端地址是 `https://github.com/csp3ff/MD-Mininet.git`：
 
 ```bash
-git add .gitignore README.md docs pyproject.toml start.sh src configs
+git add .gitignore README.md docs pyproject.toml start.sh clean.sh src configs
 git commit -m "Add basic Mininet runner"
 git push -u master master
 ```
@@ -116,7 +116,7 @@ PYTHONPATH=src python3 -m channel_mininet.cli channel-plan configs/two_workers.j
 sudo ./start.sh
 ```
 
-`start.sh` 默认读取 `configs/two_workers.json` 并在本机启动所有 Worker 分区；可用 `--scene 路径` 指定其他场景，路径相对于项目根目录。脚本使用项目 `.venv/bin/md-mininet`，需先按上文安装项目。
+`start.sh` 默认读取 `configs/two_workers.json` 并在本机启动所有 Worker 分区；可用 `--scene 路径` 指定其他场景，路径相对于项目根目录。脚本使用项目 `.venv/bin/md-mininet`，需先按上文安装项目。每次启动前会调用 `clean.sh`，按本次场景和 Worker 范围清理上一次异常退出遗留的资源；发现仍在运行的 Mininet 进程时会停止启动。
 
 这会在**同一台 Linux 机器、同一个 Mininet 进程**中创建示例的 16 台主机、4 台交换机及跨分区链路，然后进入 Mininet CLI。预期可在 CLI 中查看节点与链路，并在退出 CLI 后由 `network.stop()` 回收本次 Mininet 创建的资源。该模式使用 OVS 桥的普通 MAC 学习转发，适合先检查拓扑和基本通信；它不验证中央 SDN 控制器或本文规划的 OpenFlow 规则。示例拓扑没有交换机环路；基础桥接模式会拒绝带交换机环路的场景。
 
@@ -190,7 +190,7 @@ sudo ./start.sh --scene configs/two_workers.json --worker a --deployment configs
 sudo ./start.sh --scene configs/two_workers.json --worker b --deployment configs/deployment.yml
 ```
 
-每个进程先创建本地 Mininet 节点和内部链路，再为本机边界交换机添加 OVS VXLAN 端口。端口名与场景中的逻辑链路对应，由中央控制器核对实际 OpenFlow 端口号并安装路径。所有相关交换机都收到控制器的 `Flow update confirmed` 日志后，才能据此判断规则已经安装；这条日志本身不证明跨机数据面可达。正常退出各自的 Mininet CLI 或向主进程发送 `SIGTERM` 时，本进程删除自己创建的 VXLAN 端口并停止本地网络。异常断电或 `SIGKILL` 后的自动残留清理尚未实现；不要把下文单机全部 Worker 的清理命令直接用于多机模式。
+每个进程先清理本机对应场景和 Worker 的残留资源，再创建本地 Mininet 节点和内部链路，并为本机边界交换机添加 OVS VXLAN 端口。端口名与场景中的逻辑链路对应，由中央控制器核对实际 OpenFlow 端口号并安装路径。所有相关交换机都收到控制器的 `Flow update confirmed` 日志后，才能据此判断规则已经安装；这条日志本身不证明跨机数据面可达。正常退出各自的 Mininet CLI 或向主进程发送 `SIGTERM` 时，本进程删除自己创建的 VXLAN 端口并停止本地网络。
 
 ### 多机时间片模式：中央控制器与各 Worker 完整启动顺序
 
@@ -247,6 +247,38 @@ sudo ./start.sh --scene configs/two_workers.json --all-workers \
 
 ### 异常退出后的定向清理
 
+`start.sh` 在网络启动前自动调用 `clean.sh`。清理程序按场景和本机 Worker 计算目标，只处理本机主交换机、场景接口、带 `mdnet_owner` 标记的私有整形桥。清理前会核对部署文件与本机 IP、主交换机 DPID 和私有桥标记；若有运行中的 `md-mininet up` 或 Mininet 节点 shell，则报错退出，不删除资源。要单独清理 Worker b，可运行：
+
+```bash
+cd ~/MDNET
+sudo ./clean.sh --scene configs/two_workers.json \
+  --worker b --deployment configs/deployment.yml
+```
+
+Worker a 在自己的机器上将 `b` 改成 `a`。单机全部 Worker 模式使用 `sudo ./clean.sh --scene configs/two_workers.json --all-workers`。`vxlan_sys_4789` 是 OVS 管理的共享 VXLAN 数据面设备，可被多个逻辑 VXLAN 端口复用；它的存在本身不表示本实验有遗留资源，清理脚本不会删除它。
+
+#### 无标记的私有整形桥
+
+旧版代码可能在创建私有桥后、写入 `mdnet_owner` 前退出。清理脚本会拒绝自动删除这类无标记桥。以 Worker b 报出的 `beabee2b5e23d95` 为例，先在 **Worker b 所在机器**核对旧 Worker 进程和桥端口：
+
+```bash
+cd ~/MDNET
+bridge=beabee2b5e23d95
+pgrep -af 'md-mininet up|mininet:' || true
+sudo ovs-vsctl --timeout=10 get Bridge "$bridge" external_ids:mdnet_owner
+sudo ovs-vsctl --timeout=10 list-ports "$bridge"
+```
+
+若标记为空，核对桥端口确为旧时间片 Worker 创建的 `p...`、`v...` 私有端口，并确认没有在用的 Worker 后，才删除这一座桥：
+
+```bash
+sudo ovs-vsctl --timeout=10 --if-exists del-br "$bridge"
+```
+
+若报出其他私有桥，逐个按其**实际报错名称**核对；未确认归属的桥不要删除。清理后按上面的完整启动顺序重新启动控制器和各 Worker。
+
+#### 单机全部 Worker 模式的旧清理示例
+
 正常情况在原 Mininet CLI 输入 `exit`，让 `network.stop()` 清理。若原 CLI 无法操作，先核对进程确实是这次实验的 `md-mininet up`。以下以已报告的 PID `95438` 和 `configs/two_workers.json` 的**单机全部 Worker 模式**为例；在另一台机器上要改成实际 PID 和原启动时使用的场景文件。若还有其他实例使用相同的交换机名或场景资源，先分别停掉，避免清理它们正在使用的资源。
 
 ```bash
@@ -264,29 +296,10 @@ sudo kill -TERM 95438
 ps -o pid,ppid,stat,args -p 95437,95438
 ```
 
-如果主进程仍在，先检查它的状态；确实无法正常结束时才对**同一个已核对的 PID**使用 `sudo kill -KILL 95438`。进程退出后运行下面的定向清理。脚本从场景文件计算本实验所有接口名，只对存在于当前主机根网络命名空间的接口执行删除；删掉 veth 的一端会同时删除另一端。OVS 操作也只针对场景中的交换机名。
+如果主进程仍在，先检查它的状态；确实无法正常结束时才对**同一个已核对的 PID**使用 `sudo kill -KILL 95438`。进程退出后运行下面的定向清理。脚本从场景文件计算本实验所有接口名，只对存在于当前主机根网络命名空间的接口执行删除；删掉 veth 的一端会同时删除另一端。
 
 ```bash
-sudo ./.venv/bin/python - <<'PY'
-import subprocess
-
-from channel_mininet.runtime.names import planned_interface_names
-from channel_mininet.schema import load_scene
-
-scene = load_scene("configs/two_workers.json")
-for switch in scene.switches:
-    subprocess.run(["ovs-vsctl", "--if-exists", "del-br", switch.id], check=True)
-for name in sorted(set(planned_interface_names(scene).values())):
-    exists = subprocess.run(
-        ["ip", "link", "show", "dev", name],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
-    if exists:
-        print("deleting interface", name)
-        subprocess.run(["ip", "link", "delete", "dev", name], check=True)
-PY
+sudo ./clean.sh --scene configs/two_workers.json --all-workers
 ```
 
 最后核对原进程、场景交换机和报错时的接口。`pgrep` 没有输出时会返回状态码 1，这表示没有匹配进程。
@@ -310,6 +323,7 @@ sudo ip -o link show | grep -E 'm5055743b946da9|m3db8518d37b5c7'
 | `src/channel_mininet/runtime/` | 生成短接口名，定义链路资源登记格式 |
 | `src/channel_mininet/runtime/deployment.py` | 校验共享部署配置、场景摘要和物理端点 |
 | `src/channel_mininet/runtime/vxlan.py` | 规划边界 VXLAN 端口并在本机创建与回收 |
+| `src/channel_mininet/runtime/cleanup.py` 与 `clean.sh` | 启动前按本机范围清理异常退出的残留资源 |
 | `src/channel_mininet/backends/mininet.py` | 根据 Worker 分区或完整场景生成 Mininet Topo |
 | `src/channel_mininet/runtime/worker.py` | 基础 Mininet 网络的前台启动与退出清理 |
 | `src/controller/cli.py` | 独立启动 Ryu 中央控制器 |
@@ -317,7 +331,7 @@ sudo ip -o link show | grep -E 'm5055743b946da9|m3db8518d37b5c7'
 
 默认 `up` 使用标准 Mininet Host 和 OVSBridge；受控 `up` 使用 OVSSwitch，控制器只读取共享场景并复用纯计算的流表规划，不创建或管理 Mininet 进程。保留的 `make_worker_topo` 则是未来的容器化入口，需要调用方注入真正的 Docker 主机类和 Docker OVS 交换机类。
 
-目前只有前台 `up`；没有独立的 `down` 或容器化部署命令。跨机器链路使用 OVS VXLAN，由每个 Worker 进程仅创建和回收本机端点。前台进程异常终止后的自动资源恢复尚未实现；上面的手工清理示例仅针对单机全部 Worker 模式。
+目前只有前台 `up`；没有独立的 `down` 或容器化部署命令。跨机器链路使用 OVS VXLAN，由每个 Worker 进程仅创建和回收本机端点。`start.sh` 会先执行定向残留清理；无标记的私有桥和仍在运行的 Mininet 进程需要按上文人工核对。
 
 ## 6. 完整网络部署还需要什么
 

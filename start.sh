@@ -9,9 +9,12 @@ scope_selected=false
 controller_opts=()
 controller_host_selected=false
 controller_port_selected=false
+controller_port_value=
 deployment_opts=()
 channel_opts=()
 channel_selected=false
+channel_control_port_selected=false
+channel_control_port_value=
 
 usage() {
     cat <<'EOF'
@@ -83,6 +86,7 @@ while (($#)); do
                 exit 2
             fi
             controller_opts+=(--controller-port "$2")
+            controller_port_value="$2"
             controller_port_selected=true
             shift 2
             ;;
@@ -96,11 +100,14 @@ while (($#)); do
             shift
             ;;
         --channel-control-port)
-            if (($# < 2)) || [[ -z "$2" || "$2" == --* ]]; then
+            if (($# < 2)) || [[ -z "$2" || "$2" == --* ||
+                "$channel_control_port_selected" == true ]]; then
                 echo "--channel-control-port requires one port number." >&2
                 exit 2
             fi
             channel_opts+=(--channel-control-port "$2")
+            channel_control_port_value="$2"
+            channel_control_port_selected=true
             shift 2
             ;;
         -h|--help)
@@ -124,6 +131,27 @@ if ((${#deployment_opts[@]})) && [[ "$scope_selected" == false || ${scope[0]} !=
     echo "--deployment requires --worker and supplies the controller address." >&2
     exit 2
 fi
+if [[ "$channel_control_port_selected" == true && "$channel_selected" == false ]]; then
+    echo "--channel-control-port requires --channel." >&2
+    exit 2
+fi
+if [[ "$channel_selected" == true && ${#deployment_opts[@]} -eq 0 &&
+    "$controller_host_selected" == false ]]; then
+    echo "--channel requires a central controller." >&2
+    exit 2
+fi
+if ((${#deployment_opts[@]})) && [[ "$channel_control_port_selected" == true ]]; then
+    echo "--deployment supplies the channel control port." >&2
+    exit 2
+fi
+for port in "$controller_port_value" "$channel_control_port_value"; do
+    if [[ -n "$port" ]] && {
+        [[ ! "$port" =~ ^[0-9]{1,5}$ ]] || ((10#$port < 1 || 10#$port > 65535))
+    }; then
+        echo "Port must be between 1 and 65535: $port" >&2
+        exit 2
+    fi
+done
 
 if [[ ! -f "$scene" ]]; then
     echo "Scene file not found: $scene" >&2
@@ -139,4 +167,5 @@ if ((EUID != 0)); then
     exit 1
 fi
 
+"$project_dir/clean.sh" --scene "$scene" "${scope[@]}" "${deployment_opts[@]}"
 exec "$cli" up "$scene" "${scope[@]}" "${controller_opts[@]}" "${deployment_opts[@]}" "${channel_opts[@]}"

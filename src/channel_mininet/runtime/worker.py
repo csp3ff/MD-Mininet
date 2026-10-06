@@ -13,7 +13,8 @@ from channel_mininet.runtime.channel_agent import ChannelAgent
 from channel_mininet.runtime.channel_shaper import ChannelShaper
 from channel_mininet.runtime.deployment import Deployment
 from channel_mininet.runtime.vxlan import (
-    add_shaped_tunnel, add_tunnel, check_local_underlay, plan_tunnels,
+    add_shaped_tunnel, add_tunnel, check_local_underlay, check_shaped_tunnel_conflicts,
+    plan_tunnels,
     remove_shaped_tunnels, remove_tunnels,
 )
 from channel_mininet.schema import Scene
@@ -61,6 +62,8 @@ def run_basic_network(
         if not 1 <= controller_port <= 65535:
             raise RuntimeError("controller port must be between 1 and 65535")
     _check_bridge_names(scene, worker_id)
+    if channel_port is not None:
+        check_shaped_tunnel_conflicts(tunnels)
     try:
         from mininet.cli import CLI
         from mininet.log import setLogLevel
